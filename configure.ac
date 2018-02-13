@@ -91,7 +91,7 @@ i386-*-freebsd*)
 amd64-*-freebsd*|x86_64-*-freebsd*)
 	# x64 freebsd
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86_64.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT)'
+	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86_64.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
 aarch64-*-linux-*)
@@ -172,6 +172,7 @@ case ${host} in
 *-linux*)
 	# linux
 	HD_SRC='host-linux.$(OBJEXT)'
+	TD_LIBS='-ldl'
 	deebe_version=Yes
 	;;
 

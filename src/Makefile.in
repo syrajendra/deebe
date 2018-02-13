@@ -105,9 +105,9 @@ PROGRAMS = $(bin_PROGRAMS)
 am_deebe_OBJECTS = breakpoint.$(OBJEXT) cmdline.$(OBJEXT) \
 	gdb_interface.$(OBJEXT) elf.$(OBJEXT) lldb_interface.$(OBJEXT) \
 	memory.$(OBJEXT) main.$(OBJEXT) network.$(OBJEXT) \
-	packet.$(OBJEXT) ptrace.$(OBJEXT) proc.$(OBJEXT) \
-	signal.$(OBJEXT) target.$(OBJEXT) thread_db.$(OBJEXT) \
-	util.$(OBJEXT) version.$(OBJEXT) watchdog.$(OBJEXT)
+	packet.$(OBJEXT) ptrace.$(OBJEXT) signal.$(OBJEXT) \
+	target.$(OBJEXT) util.$(OBJEXT) version.$(OBJEXT) \
+	watchdog.$(OBJEXT)
 deebe_OBJECTS = $(am_deebe_OBJECTS)
 am__DEPENDENCIES_1 =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -280,15 +280,28 @@ deebe_SOURCES = \
 	network.c \
 	packet.c \
 	ptrace.c \
-	proc.c \
 	signal.c \
 	target.c \
-	thread_db.c \
 	util.c \
 	version.c \
 	watchdog.c
 
-EXTRA_deebe_SOURCES = linux.c linux-ppc.c linux-x86.c linux-aarch64.c linux-arm.c freebsd-x86.c osx-x86_64.c freebsd-ppc.c freebsd-x86.c freebsd.c target_ptrace.c target_osx.c 
+EXTRA_deebe_SOURCES = \
+	freebsd.c \
+	freebsd-ppc.c \
+	freebsd-proc.c \
+	freebsd-thread_db.c \
+	freebsd-x86.c \
+	linux.c \
+	linux-aarch64.c \
+	linux-arm.c \
+	linux-ppc.c \
+	linux-thread_db.c \
+	linux-x86.c \
+	osx-x86_64.c \
+	target_ptrace.c \
+	target_osx.c
+
 deebe_LDADD = $(TD_SRC) $(HD_SRC) $(TD_LIBS)
 deebe_DEPENDENCIES = $(TD_SRC) $(HD_SRC)
 all: all-am
@@ -381,12 +394,15 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cmdline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/elf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-ppc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-proc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-thread_db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-x86.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gdb_interface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-aarch64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-arm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-ppc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-thread_db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-x86.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lldb_interface.Po@am__quote@
@@ -395,13 +411,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osx-x86_64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/proc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/target.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/target_osx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/target_ptrace.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/thread_db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/version.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/watchdog.Po@am__quote@

@@ -90,12 +90,6 @@
 /* Define to 1 if you have the <thread_db.h> header file. */
 #undef HAVE_THREAD_DB_H
 
-/* Define to 1 if you have the `timer_create' function. */
-#undef HAVE_TIMER_CREATE
-
-/* Define to 1 if you have the `timer_settime' function. */
-#undef HAVE_TIMER_SETTIME
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
