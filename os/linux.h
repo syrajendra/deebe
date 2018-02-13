@@ -99,7 +99,7 @@ int ptrace_os_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
 #define PT_GETFPREGS PTRACE_GETFPREGS
 #endif
 
-#ifndef PT_SETRFPEGS
+#ifndef PT_SETFPREGS
 #ifndef PTRACE_SETFPREGS
 #define PTRACE_SETFPREGS (-15)
 #endif
