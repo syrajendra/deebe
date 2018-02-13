@@ -243,30 +243,15 @@ int os_thread_kill(int tid, int sig) { return 1; }
 
 void ptrace_os_wait(pid_t t) {
   pid_t tid;
-  int status = -1;
-
+  int status;
+  int index;
   /*
    * Only look for parent event after the children
    * are taken care of.  Do not do both.
    */
-  status = -1;
-  tid = waitpid(t, &status, WNOHANG);
-  if (tid > 0 && status != -1) {
-    int index;
-    index = target_index(tid);
-    if (index >= 0) {
-      PROCESS_WAIT(index) = true;
-      PROCESS_WAIT_STATUS(index) = status;
-    } else {
-      if (!target_new_thread(PROCESS_PID(0), tid, status, true, SIGSTOP)) {
-        DBG_PRINT("error allocation of new thread\n");
-      }
-    }
-  } else {
-    /*
-     * Look for children events first
-     */
-    tid = waitpid(-1, &status, __WALL | WNOHANG);
+  while(1) {
+    status = -1;
+    tid = waitpid(t, &status, WNOHANG);
     if (tid > 0 && status != -1) {
       int index;
       index = target_index(tid);
@@ -278,9 +263,45 @@ void ptrace_os_wait(pid_t t) {
           DBG_PRINT("error allocation of new thread\n");
         }
       }
+      break;
+    } else {
+      if (tid == 0) { /* no children in a waitable state retry after sometime */
+        usleep (1000);
+        continue;
+      } else {
+        perror ("waitpid");
+        break;
+      }
     }
   }
 
+  /*
+   * If the process exited, save the status and bail: no need to go over
+   * thread info
+   */
+  if (tid != 0 && (WIFEXITED(status) || WIFSIGNALED(status))) {
+    for (index = 0; index < _target.number_processes; index++) {
+      if (PROCESS_TID(index) == tid) {
+        PROCESS_STATE(index) = PRS_EXIT;
+        PROCESS_WAIT(index) = true;
+        PROCESS_WAIT_STATUS(index) = status;
+        return;
+      }
+    }
+  }
+
+  if (-1 != status) {
+    for (index = 0; index < _target.number_processes; index++) {
+      if (PROCESS_STATE(index) != PRS_EXIT) {
+        PROCESS_STATE(index) = PRS_STOP;
+        /* Expecting everyone to stop or current tid*/
+        if (t == PROCESS_TID(index)) {
+          PROCESS_WAIT(index) = true;
+          PROCESS_WAIT_STATUS(index) = status;
+        }
+      }
+    }
+  }
   /*
    * DEBUGGING CODE
    * Check on why the wait happend
@@ -323,11 +344,21 @@ void ptrace_os_continue_others() {
 
 long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig) {
   long ret;
-  long request = PT_CONTINUE;
+  long request = PTRACE_CONT;
+  int index;
   if (step == 1) {
     ptrace_arch_set_singlestep(tid, &request);
   } else {
     ptrace_arch_clear_singlestep(tid);
+  }
+  /*
+   * Staring up everyone
+   * XXX out of order, does not handle the error
+   */
+  for (index = 0; index < _target.number_processes; index++) {
+    if (PROCESS_STATE(index) != PRS_EXIT) {
+      PROCESS_STATE(index) = PRS_RUN;
+    }
   }
   ret = ptrace(request, tid, 1, sig);
   return ret;
