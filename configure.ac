@@ -98,7 +98,6 @@ aarch64-*-linux-*)
 	os=linux
 	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-aarch64.$(OBJEXT) linux.$(OBJEXT)'
 	;;
-	
 
 armel*-*-linux-*)
 	# arm 32 little endian bit linux
@@ -115,6 +114,11 @@ arm*-*-linux-*)
 arm*-*-freebsd*)
 	os=freebsd
 	TD_SRC='target_ptrace.$(OBJEXT) bsd-arm.$(OBJEXT) freebsd-arm.$(OBJEXT) freebsd.$(OBJEXT)'
+	;;
+
+aarch64*-*-freebsd*)
+	os=freebsd
+	TD_SRC='target_ptrace.$(OBJEXT) bsd-aarch64.$(OBJEXT) freebsd-aarch64.$(OBJEXT) freebsd.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 arm*-*-netbsd*)
@@ -143,7 +147,7 @@ mips-*-linux-*)
 *)
 	echo "*** Unsupported target $target." >&2
 	exit 1
-	;;	
+	;;
 esac
 AC_SUBST([TD_SRC])
 
@@ -187,7 +191,7 @@ x86_64-apple-darwin*)
 	echo "*** Unsupported host $host." >&2
 	deebe_version=No
 	exit 1
-	;;	
+	;;
 esac
 AC_SUBST([HD_SRC])
 
