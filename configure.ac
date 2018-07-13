@@ -113,7 +113,7 @@ arm*-*-linux-*)
 
 arm*-*-freebsd*)
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) bsd-arm.$(OBJEXT) freebsd-arm.$(OBJEXT) freebsd.$(OBJEXT)'
+	TD_SRC='target_ptrace.$(OBJEXT) bsd-arm.$(OBJEXT) freebsd-arm.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 aarch64*-*-freebsd*)

@@ -45,10 +45,10 @@ struct reg_location_list grll[] = {
     RLL(gp1, x[1], GDB_GPR1, 0, 0, 0, uint64_t, hex, 1, 1, arg2, r1),
     RLL(gp2, x[2], GDB_GPR2, 0, 0, 0, uint64_t, hex, 2, 2, arg3, r2),
     RLL(gp3, x[3], GDB_GPR3, 0, 0, 0, uint64_t, hex, 3, 3, arg4, r3),
-    RLL(gp4, x[4], GDB_GPR4, 0, 0, 0, uint64_t, hex, 4, 4, X, r4),
-    RLL(gp5, x[5], GDB_GPR5, 0, 0, 0, uint64_t, hex, 5, 5, X, r5),
-    RLL(gp6, x[6], GDB_GPR6, 0, 0, 0, uint64_t, hex, 6, 6, X, r6),
-    RLL(gp7, x[7], GDB_GPR7, 0, 0, 0, uint64_t, hex, 7, 7, X, r7),
+    RLL(gp4, x[4], GDB_GPR4, 0, 0, 0, uint64_t, hex, 4, 4, arg5, r4),
+    RLL(gp5, x[5], GDB_GPR5, 0, 0, 0, uint64_t, hex, 5, 5, arg6, r5),
+    RLL(gp6, x[6], GDB_GPR6, 0, 0, 0, uint64_t, hex, 6, 6, arg7, r6),
+    RLL(gp7, x[7], GDB_GPR7, 0, 0, 0, uint64_t, hex, 7, 7, arg8, r7),
     RLL(gp8, x[8], GDB_GPR8, 0, 0, 0, uint64_t, hex, 8, 8, X, r8),
     RLL(gp9, x[9], GDB_GPR9, 0, 0, 0, uint64_t, hex, 9, 9, X, r9),
     RLL(gp10, x[10], GDB_GPR10, 0, 0, 0, uint64_t, hex, 10, 10, X, r10),
@@ -116,7 +116,7 @@ struct reg_location_list frll[] = {
     RLL(fp30, fp_q[30], GDB_FPR0 + 30, 0, 0, 0, ieee754, __uint128_t, -1, -1, X, X),
     RLL(fp31, fp_q[31], GDB_FPR31, 0, 0, 0, ieee754, __uint128_t, -1, -1, X, X),
     RLL(fpsr, fp_sr, GDB_FPSR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
-    RLL(fpcr, fp_cr, GDB_FPCR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
+    RLL(fpsr, fp_cr, GDB_FPCR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
     {0},
 };
 
@@ -159,7 +159,7 @@ void ptrace_arch_clear_singlestep(pid_t pid) {
 }
 
 bool ptrace_arch_check_unrecognized_register(int reg, size_t *pad_size) {
-  bool ret = true;
+  bool ret = false;
   return ret;
 }
 

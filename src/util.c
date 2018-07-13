@@ -90,6 +90,7 @@ void util_log(const char *fmt, ...) {
     va_start(v, fmt);
     vfprintf(fp_log, fmt, v);
     va_end(v);
+    fflush(fp_log);
   }
 }
 

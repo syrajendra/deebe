@@ -1828,3 +1828,21 @@ int ptrace_get_tls_address(int64_t thread, uint64_t offset, uint64_t lm,
 {
   return ptrace_os_get_tls_address(thread, lm, offset, tlsaddr);
 }
+
+#ifndef DEEBE_RELEASE
+int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *srcname, uint line)
+{
+  errno = 0;
+  char str[128];
+  int ret = ptrace(request, pid, addr, data);
+  if (errno != 0) {
+    DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
+    DBG_PRINT("Failed for request : %s pid : %x\n", reqstr, pid);
+    memset(&str[0], 0, 128);
+    if (0 == strerror_r(errno, &str[0], 128)) {
+      DBG_PRINT("\tError-code : %d Error-msg : %s\n", errno, str);
+    }
+  }
+  return ret;
+}
+#endif

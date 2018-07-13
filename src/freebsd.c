@@ -515,29 +515,29 @@ void ptrace_os_wait(pid_t t) {
     }
 
   /*
-   * Need to keep track of new threads being created
-   * Without this check only those that hit a breakpoint
-   * would be reported.
-   *
-   * This call can change the number of threads in the thread
-   * list but it will not change the order.
-   */
-  check_lwplist_for_new_threads(pid);
-
-  /* 
    * If the process exited, save the status and bail: no need to go over
-   * thread info 
+   * thread info
    */
   if (wait_tid != 0 && (WIFEXITED(wait_status) || WIFSIGNALED(wait_status))) {
     for (index = 0; index < _target.number_processes; index++) {
       if (PROCESS_PID(index) == pid) {
-	PROCESS_STATE(index) = PRS_EXIT;
-	PROCESS_WAIT(index) = true;
-	PROCESS_WAIT_STATUS(index) = wait_status;
-	return;
+	       PROCESS_STATE(index) = PRS_EXIT;
+	       PROCESS_WAIT(index) = true;
+	       PROCESS_WAIT_STATUS(index) = wait_status;
+	       return;
       }
     }
   }
+
+  /*
+  * Need to keep track of new threads being created
+  * Without this check only those that hit a breakpoint
+  * would be reported.
+  *
+  * This call can change the number of threads in the thread
+  * list but it will not change the order.
+  */
+  check_lwplist_for_new_threads(pid);
 
   /*
    * Waiting on the pid doesn't mean everyone is stopped

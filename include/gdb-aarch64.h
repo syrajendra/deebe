@@ -35,7 +35,7 @@
 #ifndef __DEEBE_GDB_AARCH64_H
 #define __DEEBE_GDB_AARCH64_H
 
-#define GDB_GREG_MAX 69
+#define GDB_GREG_MAX 67 // fpsr & fpcr are not read
 
 #define GDB_GPR0 0
 #define GDB_GPR1 1

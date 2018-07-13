@@ -187,15 +187,7 @@ int main(int argc, char *argv[]) {
   int ret = -1;
 
 #ifndef DEEBE_RELEASE
-  FILE *try_log = fopen(LOG_FILENAME, "wt");
-  if (NULL != try_log)
-    fp_log = try_log;
-  else
-    fp_log = stdout;
-
-  try_log = NULL;
-#else
-  fp_log = stdout;
+  fp_log = fopen(LOG_FILENAME, "w");
 #endif
 
   /* Signal handlers */
@@ -243,11 +235,8 @@ int main(int argc, char *argv[]) {
   cmdline_cleanup();
 
   if (fp_log) {
-    if (fp_log != stdout) {
       fflush(fp_log);
       fclose(fp_log);
-      fp_log = stdout;
-    }
   }
   return ret;
 }

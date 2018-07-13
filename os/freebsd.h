@@ -40,10 +40,18 @@
 #include "target_ptrace.h"
 #include "global.h"
 
-/* FreeBSD and Linux swap the 3rd / 4th arg */
-#define PTRACE_GETSET(a, b, c, d) ptrace((a), (b), (caddr_t)(d), (c))
-/* To get the cast of normal arguements correct */
-#define PTRACE(a, b, c, d) ptrace((a), (b), (caddr_t)(c), (d))
+#ifdef DEEBE_RELEASE
+	/* FreeBSD and Linux swap the 3rd / 4th arg */
+	#define PTRACE_GETSET(a, b, c, d) ptrace((a), (b), (caddr_t)(d), (c))
+	/* To get the cast of normal arguements correct */
+	#define PTRACE(a, b, c, d) ptrace((a), (b), (caddr_t)(c), (d))
+#else
+	int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *file, uint line);
+	/* FreeBSD and Linux swap the 3rd / 4th arg */
+	#define PTRACE_GETSET(a, b, c, d) ptrace_debug((a), (b), (caddr_t)(d), (c), #a, __FILE__, __LINE__)
+	/* To get the cast of normal arguements correct */
+	#define PTRACE(a, b, c, d) ptrace_debug((a), (b), (caddr_t)(c), (d), #a, __FILE__, __LINE__)
+#endif
 
 /* FreeBSD ptrace returns int */
 #define ptrace_return_t int
