@@ -6079,7 +6079,7 @@ x86_64-*-linux-*)
 i386-*-freebsd*)
 	# x86 freebsd
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT)'
+	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 amd64-*-freebsd*|x86_64-*-freebsd*)
