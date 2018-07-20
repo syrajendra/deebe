@@ -659,8 +659,7 @@ int ptrace_restart(void) {
 	        tid = try_child;
 	      }
               if (target_new_thread(
-                      try_child, tid, status, true,
-                      SIGSTOP /* lie, this is really SIGTRAP */)) {
+                      try_child, tid, status, true, SIGTRAP)) {
                 ptrace_arch_option_set_thread(try_child);
                 fprintf(stdout, "Process %s created; pid = %d\n",
                         cmdline_argv[0], CURRENT_PROCESS_PID);
