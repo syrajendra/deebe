@@ -116,7 +116,7 @@ struct reg_location_list frll[] = {
     RLL(fp30, fp_q[30], GDB_FPR0 + 30, 0, 0, 0, ieee754, __uint128_t, -1, -1, X, X),
     RLL(fp31, fp_q[31], GDB_FPR31, 0, 0, 0, ieee754, __uint128_t, -1, -1, X, X),
     RLL(fpsr, fp_sr, GDB_FPSR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
-    RLL(fpsr, fp_cr, GDB_FPCR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
+    RLL(fpcr, fp_cr, GDB_FPCR, 0, 0, 0, uint32_t, hex, -1, -1, X, X),
     {0},
 };
 
@@ -128,14 +128,17 @@ struct reg_location_list fxrll[] = {
     {0},
 };
 
-static unsigned long bkpt[1] = {0xe6000011};
+/* AArch64 BRK software debug mode instruction.
+Note that AArch64 code is always little-endian.
+1101.0100.0010.0000.0000.0000.0000.0000 = 0xd4200000.  */
+static unsigned long bkpt[1] = {0x000020d4};
 
-size_t ptrace_arch_swbreak_size() { return 8; }
+size_t ptrace_arch_swbreak_size() { return 4; }
 
 int ptrace_arch_swbreak_insn(void *bdata) {
   int ret = RET_NOSUPP;
   /* Use bkpt */
-  memcpy(bdata, &bkpt[0], 8);
+  memcpy(bdata, &bkpt[0], 4);
   ret = RET_OK;
   return ret;
 }
