@@ -301,8 +301,8 @@ bool network_accept() {
   int a = 0;
   int accept_max;
 
-  timeout.tv_sec = 60;
-  timeout.tv_usec = 0;
+#define NW_ACCEPT_TIMEOUT_SEC  60
+#define NW_ACCEPT_TIMEOUT_USEC 0
 #ifndef HAVE_TIMER_CREATE
   /*
    * Older OS's (ex freebsd 6) do not have timer_create
@@ -313,16 +313,18 @@ bool network_accept() {
   if (cmdline_watchdog_minutes > 0) {
     /* get a time to compare to */
     gettimeofday(&old_time, NULL);
-    accept_max = (60 * cmdline_watchdog_minutes) / timeout.tv_sec;
+    accept_max = (60 * cmdline_watchdog_minutes) / NW_ACCEPT_TIMEOUT_SEC;
   } else {
-    accept_max = 3600 / timeout.tv_sec; /* hour */
+    accept_max = 3600 / NW_ACCEPT_TIMEOUT_SEC; /* hour */
   }
 #else
-  accept_max = 3600 / timeout.tv_sec; /* hour */
+  accept_max = 3600 / NW_ACCEPT_TIMEOUT_SEC; /* hour */
 #endif
   for (a = 0; a < accept_max; a++) {
     fd_set read_fd;
     int s = 0;
+    timeout.tv_sec = NW_ACCEPT_TIMEOUT_SEC;
+    timeout.tv_usec = NW_ACCEPT_TIMEOUT_USEC;
     FD_ZERO(&read_fd);
     FD_SET(network_listen_sd, &read_fd);
     s = select(network_listen_sd + 1, &read_fd,
