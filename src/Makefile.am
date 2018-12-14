@@ -51,7 +51,10 @@ if OS_FOR_DEEBE_VERSION
 	(git symbolic-ref HEAD || echo ) | awk ' BEGIN {} {print "#define BRANCH "$$0""} END {}' >> $(abs_builddir)/version.inc;\
 	(date +'%Y-%m-%d' || echo 1970-01-01) | awk ' BEGIN {} {print "#define BUILD_DATE "$$0""} END {}' >> $(abs_builddir)/version.inc;\
 	(git config --get remote.origin.url || echo ) | awk ' BEGIN {} {print "#define REPO_URL \""$$0"\""} END {}' >> $(abs_builddir)/version.inc;\
-	echo $(host_triplet) | awk ' BEGIN {} {print "#define DEEBE_TARGET "$$0""} END {}' >> $(abs_builddir)/version.inc
+	echo $(host_triplet) | awk ' BEGIN {} {print "#define DEEBE_TARGET "$$0""} END {}' >> $(abs_builddir)/version.inc \
+	DDATE="$(shell date '+%Y%m%d')";DRELEASE="8.2-"$$DDATE"";DFDATE="$(shell date '+%F %T %Z')";DHOST="$(shell hostname -f)";\
+	echo "volatile const char __attribute__ ((section(\".data\"))) what_line1[] = \"@(#) DEEBE release "$$DRELEASE" built by "$$USER" on "$$DFDATE"\";" >> $(abs_builddir)/version.inc;\
+	echo "volatile const char __attribute__ ((section(\".data\"))) what_line2[] = \"@(#) "$$DHOST":$(abs_builddir)\";" >> $(abs_builddir)/version.inc
 else
 	echo "#define REVISION"      > $(abs_builddir)/version.inc
 	echo "#define BRANCH"  	     >> $(abs_builddir)/version.inc
