@@ -44,7 +44,7 @@
 
 #include "version.inc"
 
-static char *_version = "deebe version 7.7 ("REPO_URL" "XSTRING(BRANCH)" "\
+static char *_version = "deebe version 8.2 ("REPO_URL" "XSTRING(BRANCH)" "\
     XSTRING(REVISION)"."XSTRING(RELEASE)") "XSTRING(BUILD_DATE)"\n"
     "Target: "XSTRING(DEEBE_TARGET);
 static char *_copyright = "Copyright (C) 2012-2015 Juniper Networks \n"

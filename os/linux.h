@@ -37,17 +37,40 @@
 
 #include <linux/elf.h>
 #include <endian.h>
+#include <stdarg.h>
+#include <sys/ptrace.h>
+#ifdef DEEBE_RELEASE
+	/*
+	 * To get the cast of normal arguements correct,
+	 * default is linux so this is a noop
+	*/
+	#define PTRACE(a, b, c, d) 	   ptrace((a), (b), (c), (d))
+	/*
+	 * FreeBSD and Linux swap the 3rd / 4th arg,
+	 * default is linux so this is a noop
+	 */
+	#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
+#else
+	/* Don't know how to implement pass by reference of variable number of arguments */
+	//int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...);
+	//#define PTRACE(a, b, ...) 	 	  ptrace_debug(#a, __FILE__, __LINE__, (a), (b), __VA_ARGS__)
 
-/*
- * To get the cast of normal arguements correct,
- * default is linux so this is a noop
-*/
-#define PTRACE(a, b, c, d) ptrace((a), (b), (c), (d))
-/*
- * FreeBSD and Linux swap the 3rd / 4th arg,
- * default is linux so this is a noop
- */
-#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
+	void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, long int ret);
+	/* Below PTRACE() call has loggging whcih is disabling non-interesting things */
+	/* Change below code as per your requirement */
+	#define PTRACE(a, b, c, d) \
+		({ \
+			errno = 0; \
+			long int ret = ptrace(a, b, c, d); \
+			if ((strcmp("PTRACE_GETREGSET", #a) != 0) && \
+				(strcmp("PTRACE_SETREGSET", #a) != 0) && \
+				(strcmp("PT_READ_D", #a) != 0) && \
+				(strcmp("PT_WRITE_D", #a) != 0)) \
+				log_ptrace(a, b, #a, __FILE__, __LINE__, ret); \
+			ret == 0 ? 0 : ret; \
+		})
+	#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
+#endif
 
 /* Linux ptrace returns long */
 #define ptrace_return_t long
@@ -68,7 +91,7 @@ int os_thread_kill(int tid, int sig);
 long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig);
 int ptrace_os_gen_thread(pid_t pid, pid_t tid);
 void ptrace_os_stopped_single(char *str, bool debug);
-long ptrace_linux_getset(long request, pid_t pid, void *addr, void *data);
+long ptrace_linux_getset(long request, pid_t pid, int addr, void *data);
 bool memory_os_region_info_gdb(uint64_t addr, char *out_buff,
 			       size_t out_buf_size);
 bool ptrace_os_read_auxv(char *out_buff, size_t out_buf_size, size_t offset,

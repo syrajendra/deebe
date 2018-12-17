@@ -51,7 +51,8 @@
 #ifdef DEEBE_RELEASE
 #define DBG_PRINT(fmt, args...)
 #else
-#define DBG_PRINT(fmt, args...) util_log(fmt, ##args)
+#define MY_PRINT(fmt, args...) util_log(fmt, ##args)
+#define DBG_PRINT(fmt, args...) MY_PRINT("%s: "fmt, __func__, ##args)
 #endif
 
 #define PRINTABLE(c)                                                           \

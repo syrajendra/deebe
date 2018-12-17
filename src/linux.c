@@ -64,7 +64,7 @@ void ptrace_os_write_fxreg(pid_t tid) {
 void ptrace_os_option_set_syscall(pid_t pid) {
 #ifdef PTRACE_O_TRACESYSGOOD
   errno = 0;
-  if (0 == ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACESYSGOOD)) {
+  if (0 == PTRACE(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACESYSGOOD)) {
     /* Success */
     ;
   } else {
@@ -91,9 +91,9 @@ bool ptrace_os_check_syscall(pid_t pid, int *in_out_sig) {
 
 void ptrace_os_option_set_thread(pid_t pid) {
 #ifdef PTRACE_O_TRACEEXEC
-  if (0 != ptrace(PTRACE_SETOPTIONS, pid, NULL,
-                  PTRACE_O_TRACEEXEC)) {
-    DBG_PRINT("error setting PTRACE_O_TRACEEXEC\n");
+  if (0 != PTRACE(PTRACE_SETOPTIONS, pid, NULL,
+                  PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE)) {
+    DBG_PRINT("Error setting PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE\n");
   }
 #endif
 }
@@ -104,6 +104,7 @@ bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status) {
   int status = 0;
 
   tid = waitpid(-1, &status, __WALL | WNOHANG);
+  DBG_PRINT("%s: tid:%llx\n", __func__, tid);
   if (tid > 0) {
     if (!target_is_tid(tid)) {
       pid_t tid2;
@@ -121,7 +122,7 @@ bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status) {
           other_index = target_index(tid2);
           if (other_index >= 0) {
             PROCESS_WAIT_STATUS(other_index) = status;
-            PROCESS_WAIT(other_index) = true;
+            PROCESS_WAIT_FLAG(other_index) = true;
 
             DBG_PRINT("%s strange.. %d %x\n", __func__, other_index, status);
 
@@ -157,7 +158,7 @@ bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status) {
     } else {
       int index = target_index(tid);
       PROCESS_WAIT_STATUS(index) = status;
-      PROCESS_WAIT(index) = true;
+      PROCESS_WAIT_FLAG(index) = true;
     }
   }
 
@@ -176,8 +177,8 @@ bool ptrace_os_new_thread(pid_t tid, int status) {
 bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
   bool ret = false;
 
-#if 0
 	int s = WSTOPSIG(status);
+  DBG_PRINT("%s Signal : %d\n", __func__, s);
 	if (s == SIGTRAP) {
 		int e = (status >> 16) & 0xff;
 		if (e == PTRACE_EVENT_CLONE) {
@@ -185,7 +186,7 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
 			DBG_PRINT("%s looking good\n", __func__);
 
 			unsigned long new_tid = 0;
-			if (0 != ptrace(PTRACE_GETEVENTMSG, CURRENT_PROCESS_TID, 0, &new_tid)) {
+			if (0 != PTRACE(PTRACE_GETEVENTMSG, CURRENT_PROCESS_TID, 0, &new_tid)) {
 				DBG_PRINT("ptrace error with new thread id\n");
 			} else {
 				int thread_status;
@@ -202,12 +203,15 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
 						other_index = target_index(pid);
 						if (other_index >= 0) {
 							PROCESS_WAIT_STATUS(other_index) = status;
-							PROCESS_WAIT(other_index) = true;
+							PROCESS_WAIT_FLAG(other_index) = true;
 
-							DBG_PRINT("%s strange.. %d %x\n", __func__, other_index, status);
+							DBG_PRINT("%s strange.. %d %x\n", __func__,
+										other_index, status);
 
 						} else {
-							DBG_PRINT("%s try %d %x vs %x status %d\n", __func__, errs, pid, new_tid, thread_status);
+							DBG_PRINT("%s try %d %x vs %x status %d\n",
+										__func__, errs, pid, new_tid,
+										thread_status);
 						}
 					}
 				}
@@ -219,7 +223,7 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
 							if (out_pid)
 								*out_pid = new_tid;
 							ret = true;
-							
+
 							DBG_PRINT("%s good.. %x\n", __func__, new_tid);
 
 						} else {
@@ -234,8 +238,6 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
 			}
 		}
 	}
-#endif
-
   return ret;
 }
 
@@ -245,22 +247,32 @@ void ptrace_os_wait(pid_t t) {
   pid_t tid;
   int status;
   int index;
+
+  PRINT_ALL_PROCESS_INFO("entry");
+  DBG_PRINT("wait_pid:%d\n", t);
   /*
    * Only look for parent event after the children
    * are taken care of.  Do not do both.
    */
   while(1) {
     status = -1;
-    tid = waitpid(t, &status, WNOHANG);
+    if (t != -1) {
+      if (kill(t, 0) == -1) {
+        DBG_PRINT("Error: pid:%d is dead %s\n", t, strerror(errno));
+      }
+    }
+
+    tid = waitpid(t, &status, WNOHANG | __WALL);
     if (tid > 0 && status != -1) {
+      DBG_PRINT("waitpid(%x) returned tid:%x\n", t, tid);
       int index;
       index = target_index(tid);
       if (index >= 0) {
-        PROCESS_WAIT(index) = true;
+        PROCESS_WAIT_FLAG(index) = true;
         PROCESS_WAIT_STATUS(index) = status;
       } else {
         if (!target_new_thread(PROCESS_PID(0), tid, status, true, SIGSTOP)) {
-          DBG_PRINT("error allocation of new thread\n");
+          DBG_PRINT("Error allocation of new thread failed\n");
         }
       }
       break;
@@ -269,8 +281,13 @@ void ptrace_os_wait(pid_t t) {
         usleep (1000);
         continue;
       } else {
-        perror ("waitpid");
-        break;
+        if(tid == -1 && errno == EINTR) continue;
+        else {
+          DBG_PRINT("Error: parent_pid:%d Failed to run waitpid(%d) return:%d : %s\n",
+          				PROCESS_PID(0), t, tid, strerror(errno));
+          perror ("waitpid");
+          break;
+        }
       }
     }
   }
@@ -281,9 +298,9 @@ void ptrace_os_wait(pid_t t) {
    */
   if (tid != 0 && (WIFEXITED(status) || WIFSIGNALED(status))) {
     for (index = 0; index < _target.number_processes; index++) {
+      PROCESS_STATE(index) = PRS_EXIT;
       if (PROCESS_TID(index) == tid) {
-        PROCESS_STATE(index) = PRS_EXIT;
-        PROCESS_WAIT(index) = true;
+        PROCESS_WAIT_FLAG(index) = true;
         PROCESS_WAIT_STATUS(index) = status;
         return;
       }
@@ -292,32 +309,35 @@ void ptrace_os_wait(pid_t t) {
 
   if (-1 != status) {
     for (index = 0; index < _target.number_processes; index++) {
-      if (PROCESS_STATE(index) != PRS_EXIT) {
+      if ((PROCESS_STATE(index) != PRS_EXIT) && (PROCESS_STATE(index) != PRS_START)) {
         PROCESS_STATE(index) = PRS_STOP;
+        PROCESS_WAIT_FLAG(index) = true;
         /* Expecting everyone to stop or current tid*/
-        if (t == PROCESS_TID(index)) {
-          PROCESS_WAIT(index) = true;
+        if (tid == PROCESS_TID(index)) {
           PROCESS_WAIT_STATUS(index) = status;
         }
       }
     }
   }
-  /*
-   * DEBUGGING CODE
-   * Check on why the wait happend
-   *
-   if (tid > 0 && status != -1) {
-     siginfo_t si = { 0 };
-     if (0 == ptrace(PTRACE_GETSIGINFO, tid, NULL, &si)) {
-       fprintf(stderr, "Got siginfo %x %x\n", tid, status);
-       fprintf(stderr, "signo %x\n", si.si_signo);
-       fprintf(stderr, "errno %x\n", si.si_errno);
-       fprintf(stderr, "code  %x\n", si.si_code);
-     } else {
-       fprintf(stderr, "NO siginfo\n");
-     }
-   }
+
+PRINT_ALL_PROCESS_INFO("exit");
+
+#ifndef DEEBE_RELEASE
+  /* DEBUGGING CODE
+  * Check on why the wait happend
   */
+  /*
+  if (tid > 0 && status != -1) {
+    siginfo_t si = { 0 };
+    if (0 == PTRACE(PTRACE_GETSIGINFO, tid, NULL, &si)) {
+      DBG_PRINT("Got siginfo tid:%x status:%x signo %x errno %x code  %x\n",
+      				tid, status, si.si_signo, si.si_errno, si.si_code);
+    } else {
+      DBG_PRINT("No siginfo\n");
+    }
+  }
+  */
+#endif
 }
 
 void ptrace_os_continue_others() {
@@ -327,8 +347,11 @@ void ptrace_os_continue_others() {
     for (index = 0; index < _target.number_processes; index++) {
       pid_t pid = PROCESS_PID(index);
       pid_t tid = PROCESS_TID(index);
-      bool wait = PROCESS_WAIT(index);
+      bool wait = PROCESS_WAIT_FLAG(index);
 
+      DBG_PRINT("pid:%d tid:%d current_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
+      				pid, tid, CURRENT_PROCESS_TID, wait,
+      				PROCESS_STATE_STR(index), PROCESS_SIG(index));
       if (!wait || (tid == CURRENT_PROCESS_TID)) {
         continue;
       } else {
@@ -356,11 +379,19 @@ long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig) {
    * XXX out of order, does not handle the error
    */
   for (index = 0; index < _target.number_processes; index++) {
-    if (PROCESS_STATE(index) != PRS_EXIT) {
+    if ((PROCESS_STATE(index) != PRS_EXIT) && (PROCESS_STATE(index) != PRS_SIG_PENDING)) {
       PROCESS_STATE(index) = PRS_RUN;
     }
   }
-  ret = ptrace(request, tid, 1, sig);
+  index = target_index(tid);
+  DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s\n",
+  				pid, tid, PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index));
+  if (request == PTRACE_CONT)
+    ret = PTRACE(PTRACE_CONT, tid, 1, sig);
+  else if (request == PTRACE_SINGLESTEP)
+    ret = PTRACE(PTRACE_SINGLESTEP, tid, 1, sig);
+  else
+    ret = PTRACE(PTRACE_CONT, tid, 1, sig);
   return ret;
 }
 
@@ -372,22 +403,22 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
 
   index = target_index(tid);
 
-  DBG_PRINT("%s index %d\n", __func__, index);
+  DBG_PRINT("pid:%x tid:%x index:%d\n", pid, tid, index);
 
   if (index < 0) {
     /* Not a valid thread */
   } else if (!target_is_alive_thread(tid)) {
     /* dead thread */
-    DBG_PRINT("%s dead %d\n", __func__, index);
+    DBG_PRINT("dead %d\n", index);
   } else if (_target.current_process == index) {
     /* The trival case */
-    DBG_PRINT("%s trivial %d\n", __func__, index);
+    DBG_PRINT("trivial %d\n", index);
     ret = RET_OK;
-  } else if (PROCESS_WAIT(index)) {
+  } else if (PROCESS_WAIT_FLAG(index)) {
     /* We got lucky, the process is already in a wait state */
     target_thread_make_current(tid);
 
-    DBG_PRINT("%s already waiting %d\n", __func__, index);
+    DBG_PRINT("already waiting %d\n", index);
 
     /*
      * Continuing the old current will happen automatically
@@ -396,7 +427,7 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
     ret = RET_OK;
   } else {
 
-    DBG_PRINT("%s hard case %x %d\n", __func__, tid, index);
+    DBG_PRINT("hard case %x %d\n", tid, index);
 
     /*
      * The current thread is not the one that is being switched to.
@@ -437,7 +468,7 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
 
         wait_ret = ptrace_wait(str, 0, true);
         if (wait_ret == RET_OK) {
-          DBG_PRINT("%s hard case %s\n", __func__, str);
+          DBG_PRINT("hard case %s\n", str);
 
           /*
            * When an RET_OK was hit, we have something to report
@@ -468,16 +499,8 @@ end:
 }
 
 void ptrace_os_stopped_single(char *str, bool debug) {
-  int index;
-  for (index = 0; index < _target.number_processes; index++) {
-    bool process_wait = PROCESS_WAIT(index);
-    if (process_wait) {
-      DBG_PRINT("%s stopped %x looking for %x\n", __func__, index,
-                _target.current_process);
-    }
-  }
-
-  if (CURRENT_PROCESS_WAIT) {
+  PRINT_ALL_PROCESS_INFO("entry");
+  if (CURRENT_PROCESS_WAIT_FLAG) {
 
     pid_t tid = CURRENT_PROCESS_TID;
     int wait_status = CURRENT_PROCESS_WAIT_STATUS;
@@ -497,61 +520,92 @@ void ptrace_os_stopped_single(char *str, bool debug) {
           util_print_buffer(fp_log, 0, 32, &b[0]);
         }
       }
+      DBG_PRINT("single stop reported pid:%x tid:%x\n",
+                CURRENT_PROCESS_PID,
+                CURRENT_PROCESS_TID);
+
       if (s == SIGTRAP) {
         unsigned long watch_addr = 0;
         /* Fill out the status string */
         if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
           gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT);
+          target_thread_make_current(tid);
           CURRENT_PROCESS_STOP = LLDB_STOP_REASON_BREAKPOINT;
         } else if (ptrace_arch_hit_watchpoint(tid, &watch_addr)) {
           /* A watchpoint was hit */
           gdb_stop_string(str, g, tid, watch_addr, LLDB_STOP_REASON_WATCHPOINT);
+          target_thread_make_current(tid);
           CURRENT_PROCESS_STOP = LLDB_STOP_REASON_WATCHPOINT;
         } else {
-          int reason;
-          if (_target.step) {
-            /* stepping can run over a normal breakpoint so precidence is for
-             * stepping */
-            reason = LLDB_STOP_REASON_TRACE;
-          } else {
-            /*
-             * XXX A real trap and a breakpoint could be at the same location
-             *
-             * lldb checks if the pc matches what was used to set the
-             *breakpoint.
-             * At this point the pc can advanced (at least on x86).
-             * If the pc and the breakpoint don't match, lldb puts itself in a
-             *bad
-             * state.  So check if we are on lldb and roll back the pc one sw
-             *break's
-             * worth.
-             *
-             * On freebsd arm, the pc isn't advanced so use the arch dependent
-             *function
-             * ptrace_arch_swbreak_rollback
-             */
-            if (_target.lldb)
-              ptrace_arch_set_pc(tid, pc - ptrace_arch_swbrk_rollback());
+          if (!ptrace_os_new_thread(tid, wait_status)) {
+            int reason;
+            if (_target.step) {
+              /* stepping can run over a normal breakpoint so precidence is for
+               * stepping */
+              reason = LLDB_STOP_REASON_TRACE;
+            } else {
+              /*
+               * XXX A real trap and a breakpoint could be at the same location
+               *
+               * lldb checks if the pc matches what was used to set the
+               *breakpoint.
+               * At this point the pc can advanced (at least on x86).
+               * If the pc and the breakpoint don't match, lldb puts itself in a
+               *bad
+               * state.  So check if we are on lldb and roll back the pc one sw
+               *break's
+               * worth.
+               *
+               * On freebsd arm, the pc isn't advanced so use the arch dependent
+               *function
+               * ptrace_arch_swbreak_rollback
+               */
+              if (_target.lldb)
+                ptrace_arch_set_pc(tid, pc - ptrace_arch_swbrk_rollback());
 
-            reason = LLDB_STOP_REASON_BREAKPOINT;
+              reason = LLDB_STOP_REASON_BREAKPOINT;
+            }
+            gdb_stop_string(str, g, tid, 0, reason);
+            DBG_PRINT("Process %x state : %d str:[%s] LLDB_STOP_REASON_BREAKPOINT\n",
+            			tid, CURRENT_PROCESS_STATE, str);
+            target_thread_make_current(tid);
+            CURRENT_PROCESS_STOP = reason;
           }
-          gdb_stop_string(str, g, tid, 0, reason);
-          CURRENT_PROCESS_STOP = reason;
         }
-
       } else {
-        /* A non trap signal */
-        gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
-        CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
-      }
-    }
-  }
+        if (PRS_START == CURRENT_PROCESS_STATE) {
+            if (NS_OFF == _target.nonstop) {
+              /* Remap signal to SIGTRAP */
+              g = ptrace_arch_signal_to_gdb(SIGTRAP);
+              /* Need to report to gdb */
+              if (target_thread_make_current(tid)) {
+                /* A non trap signal */
+                gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+                CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
+              }
+            } else {
+              DBG_PRINT("Ignoring clone start signal pid:%x tid:%x gdb signal:%d\n",
+              				CURRENT_PROCESS_PID, CURRENT_PROCESS_TID, g);
+              CURRENT_PROCESS_STATE = PRS_STOP;
+            }
+          } else {
+            if (target_thread_make_current(tid)) {
+              /* A non trap signal */
+              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+              DBG_PRINT("Process %x signal:%d state : %d str:[%s] LLDB_STOP_REASON_SIGNAL\n",
+              				tid, s, CURRENT_PROCESS_STATE, str);
+              CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
+            }
+          }
+      } /* else of ptrace_os_new_thread() check */
+    } /* Waiting */
+  } /* CURRENT_PROCESS_WAIT_FLAG */
 }
 
-long ptrace_linux_getset(long request, pid_t pid, void *addr, void *data) {
+long ptrace_linux_getset(long request, pid_t pid, int addr, void *data) {
   long ret = -1;
   /* The old way.. */
-  if (request > 0) {
+  if (request < 0) {
     ret = PTRACE(request, pid, addr, data);
   } else {
     struct iovec vec;
@@ -669,17 +723,17 @@ bool memory_os_read(pid_t tid, void *addr, void *val) {
     bool ret = false;
     ptrace_return_t *pt_val = (ptrace_return_t *) val;
     errno = 0;
-    *pt_val = ptrace(PT_READ_D, tid, addr, 0);
+    *pt_val = PTRACE(PT_READ_D, tid, addr, 0);
     if (errno == 0)
-	ret = true;
+	     ret = true;
     return ret;
 }
 
 bool memory_os_write(pid_t tid, void *addr, void *val) {
     bool ret = false;
     ptrace_return_t *pt_val = (ptrace_return_t *) val;
-    if (0 == ptrace(PT_WRITE_D, tid, addr, *pt_val))
-	ret = true;
+    if (0 == PTRACE(PT_WRITE_D, tid, addr, *pt_val))
+	     ret = true;
     return ret;
 }
 
@@ -696,9 +750,9 @@ pid_t ptrace_os_get_wait_tid(pid_t pid) {
 #ifdef PTRACE_GETEVENTMSG
     int status;
     unsigned long new_tid = 0;
-    status = ptrace(PTRACE_GETEVENTMSG, pid, 0, &new_tid);
+    status = PTRACE(PTRACE_GETEVENTMSG, pid, 0, &new_tid);
     if (0 == status && new_tid != 0) {
-	ret = new_tid;
+	     ret = new_tid;
     }
 #endif
     return ret;

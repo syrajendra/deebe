@@ -89,6 +89,9 @@ extern char *in_buf;
 extern char *out_buf;
 extern char *in_buf_quick;
 
+#ifndef DEEBE_RELEASE
+static bool _gdb_interface_verbose = true;
+#endif
 /* Decode/encode functions */
 
 static int gdb_decode_reg_assignment(char *in, unsigned int *reg_no,
@@ -166,7 +169,7 @@ void handle_thread_commands(char *const in_buf, char *out_buf,
                             gdb_target *target) {
   int ret;
   if ((in_buf[1] == 'c') || (in_buf[1] == 'g')) {
-    int cmd_type = cmd_type = in_buf[1];
+    int cmd_type = in_buf[1];
     int64_t p, t;
     if (_decode_thread_id(&in_buf[2], &p, &t)) {
       gdb_interface_write_retval(RET_ERR, out_buf);
@@ -569,6 +572,7 @@ void handle_running_commands(char *const in_buf, char *out_buf,
 int handle_kill_command(char *const in_buf, char *out_buf, gdb_target *t) {
   int ret;
 
+  DBG_PRINT("Kill command received\n");
   t->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
 
   if (!extended_protocol) {
@@ -1452,6 +1456,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
       if (strlen(in) > 2) {
         if (in[0] == ':') {
           if (0 == _decode_thread_id(&in[1], &p, &t)) {
+            DBG_PRINT("processid: %x threadid:%x \n", p, t);
             target->set_gen_thread(p, t);
           }
         }
@@ -1506,7 +1511,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
            * 'tp' that is passed to decode byte
            *
            */
-          char *filepath = (char *)malloc((fs - n) / 2);
+          char *filepath = (char *)malloc(((fs - n) / 2) + 1);
           if (filepath) {
             uint8_t *tp;
             for (t = n, tp = (uint8_t *)filepath; t < fs - 1 && status;
@@ -1515,7 +1520,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
             }
             if (status) {
               int gdb_flag;
-              tp[0] = 0; /* null terminate */
+              *tp = '\0'; /* null terminate */
               end = NULL;
               gdb_flag = strtol(fs, &end, 16);
               if (end != fs) {
@@ -2182,6 +2187,12 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
   int ret = 1;
   bool binary_cmd = false;
 
+#ifndef DEEBE_RELEASE
+  if (_gdb_interface_verbose) {
+    in_buf[in_len] = '\0';
+    DBG_PRINT("IN: %s\n", in_buf);
+  }
+#endif
   /*
    * If we cannot process this command,
    * it is not supported
@@ -2363,6 +2374,10 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
       break;
     }
   }
+#ifndef DEEBE_RELEASE
+  if (_gdb_interface_verbose)
+    DBG_PRINT("OUT: %s\n", out_buf);
+#endif
   return ret;
 }
 
@@ -2409,13 +2424,13 @@ int gdb_quick_packet_handle (char* in_buf)
       ret = 0;
     } else {
       /* Ignore */
-      DBG_PRINT("quick packet : ignoring %s ", in_buf);
+      DBG_PRINT("quick packet : ignoring [%s] \n", in_buf);
     }
     break;
 
   default:
     /* Ignore */
-    DBG_PRINT("quick packet : ignoring %s ", in_buf);
+    DBG_PRINT("quick packet : ignoring [%s] \n", in_buf);
     break;
   }
   return ret;

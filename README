@@ -26,7 +26,7 @@ The default install location is /usr/local/bin/
 Dependencies
 
 The reference autoconf versions are
-autoconf-2.68
+autoconf-2.69
 automake-1.15
 m4-1.4.15
 

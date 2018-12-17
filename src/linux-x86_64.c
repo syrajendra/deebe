@@ -87,6 +87,8 @@ struct reg_location_list grll[] = {
         flags),
     RLL(rsp, regs.rsp, GDB_RSP, 0, 0, 4, uint, hex, 7, 7, sp, sp),
     RLL(ss, regs.ss, GDB_SS, 0, 0, 4, uint, hex, 52, 52, X, X),
+    RLL(fs_base, regs.fs_base, GDB_FS_BASE, 0, 0, 4, uint, hex, 58, 58, X, X),
+    RLL(gs_base, regs.gs_base, GDB_GS_BASE, 0, 0, 4, uint, hex, 59, 59, X, X),
     {0},
 };
 
@@ -94,7 +96,7 @@ struct reg_location_list grll[] = {
 #define DEEBE_REG_STRUCT user_fpregs_struct
 #include "regmacros.h"
 struct reg_location_list frll[] = {
-    RLL(st0, st_space[0], GDB_FST0, 0, 10, 10, vector, vector - uint8, 33, 33,
+    RLL(st0, st_space, GDB_FST0, 0, 10, 10, vector, vector - uint8, 33, 33,
         X, X),
     RLL(st1, st_space, GDB_FST1, 10, 10, 10, vector, vector - uint8, 34, 34, X,
         X),
@@ -148,7 +150,7 @@ void ptrace_arch_write_fxreg(pid_t tid) { /* part of fp regs */ }
 #define GDB_GREG_MAX 40
 #endif
 
-int ptrace_arch_gdb_greg_max() { return 24; }
+int ptrace_arch_gdb_greg_max() { return 59; }
 
 void ptrace_arch_get_pc(pid_t tid, unsigned long *pc) {
   _read_greg(tid);

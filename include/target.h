@@ -62,8 +62,8 @@ enum process_state {
 };
 
 enum nonstop_state {
-  NS_ON = 0,
-  NS_OFF = 0,
+   NS_OFF = 0,
+   NS_ON = 1,
 };
 
 typedef struct target_process_rec {
@@ -76,6 +76,8 @@ typedef struct target_process_rec {
   long syscall; /* the most recent syscall */
   int stop;     /* why did we stop */
 } target_process;
+
+#define MAX_TARGET_PROCESS 1024
 
 typedef struct target_state_rec {
   bool lldb;
@@ -101,7 +103,7 @@ typedef struct target_state_rec {
   void *dbreg;
   size_t number_processes;
   size_t current_process;
-  target_process *process;
+  target_process process[MAX_TARGET_PROCESS];
   struct breakpoint *bpl;
 #ifdef HAVE_THREAD_DB_H
   struct ps_prochandle ph;
@@ -113,7 +115,7 @@ typedef struct target_state_rec {
 #define PROCESS_TID(n) _target.process[n].tid
 #define PROCESS_STATE(n) _target.process[n].ps
 #define PROCESS_WAIT_STATUS(n) _target.process[n].ws
-#define PROCESS_WAIT(n) _target.process[n].w
+#define PROCESS_WAIT_FLAG(n) _target.process[n].w
 #define PROCESS_SIG(n) _target.process[n].sig
 #define PROCESS_SYSCALL(n) _target.process[n].syscall
 #define PROCESS_STOP(n) _target.process[n].stop
@@ -122,11 +124,75 @@ typedef struct target_state_rec {
 #define CURRENT_PROCESS_TID PROCESS_TID(_target.current_process)
 #define CURRENT_PROCESS_STATE PROCESS_STATE(_target.current_process)
 #define CURRENT_PROCESS_WAIT_STATUS PROCESS_WAIT_STATUS(_target.current_process)
-#define CURRENT_PROCESS_WAIT PROCESS_WAIT(_target.current_process)
+#define CURRENT_PROCESS_WAIT_FLAG PROCESS_WAIT_FLAG(_target.current_process)
 #define CURRENT_PROCESS_SIG PROCESS_SIG(_target.current_process)
 #define CURRENT_PROCESS_SYSCALL PROCESS_SYSCALL(_target.current_process)
 #define CURRENT_PROCESS_STOP PROCESS_STOP(_target.current_process)
-  
+
+#define PROCESS_STATE_STR(n) \
+  ({ \
+    int _ps  = PROCESS_STATE(n); \
+    char *_ret= NULL; \
+    switch(_ps) { \
+      case 0 : _ret = "PRS_NULL"; break; \
+      case 1 : _ret = "PRS_PRE_START"; break; \
+      case 2 : _ret = "PRS_START"; break; \
+      case 3 : _ret = "PRS_RUN"; break; \
+      case 4 : _ret = "PRS_EXIT"; break; \
+      case 5 : _ret = "PRS_SIG"; break; \
+      case 6 : _ret = "PRS_SIG_PENDING"; break; \
+      case 7 : _ret = "PRS_INTERNAL_SIG_PENDING"; break; \
+      case 8 : _ret = "PRS_ERR"; break; \
+      case 9 : _ret = "PRS_CONT"; break; \
+      case 10 : _ret = "PRS_STOP"; break; \
+      case 11 : _ret = "PRS_SYSCALL_ENTER"; break; \
+      case 12 : _ret = "PRS_SYSCALL_EXIT"; break; \
+    } \
+    _ret ? _ret : NULL; \
+  })
+
+#define CURRENT_PROCESS_STATE_STR PROCESS_STATE_STR(_target.current_process)
+
+#define RETURN_CODE_STR(n) \
+  ({ \
+    char *_ret = NULL; \
+    switch(n) { \
+      case 0: _ret = "RET_OK"; break; \
+      case 1: _ret = "RET_ERR"; break; \
+      case 2: _ret = "RET_NOSUPP"; break; \
+      case 3: _ret = "RET_IGNORE"; break; \
+      case 4: _ret = "RET_CONTINUE_WAIT"; break; \
+    } \
+    _ret ? _ret : NULL; \
+  })
+
+#define PRINT_ALL_PROCESS_INFO(msg) \
+  ({ \
+      int _my_index; \
+      char * __attribute__((__unused__)) _current_msg = NULL; \
+      for (_my_index = 0; _my_index < _target.number_processes; _my_index++) { \
+        if (CURRENT_PROCESS_TID == PROCESS_TID(_my_index)) { \
+          _current_msg = "current process"; \
+        } else { \
+          _current_msg = ""; \
+        } \
+        DBG_PRINT("%s %s pid:%d tid:%d wait_flag:%d process_state:%s\n", \
+          msg, _current_msg, \
+          PROCESS_PID(_my_index), \
+          PROCESS_TID(_my_index), \
+          PROCESS_WAIT_FLAG(_my_index), \
+          PROCESS_STATE_STR(_my_index)); \
+      } \
+  })
+
+#define PRINT_CURRENT_PROCESS_INFO(msg) \
+  ({ \
+      DBG_PRINT("%s current process pid:%d tid:%d wait_flag:%d process_state:%s\n", \
+        msg, CURRENT_PROCESS_PID, \
+        CURRENT_PROCESS_TID, CURRENT_PROCESS_WAIT_FLAG, \
+        CURRENT_PROCESS_STATE_STR); \
+  })
+
 #define PROCESS_WAIT_STATUS_DEFAULT -1
 
 extern target_state _target;

@@ -67,7 +67,7 @@ target_state _target = {
     .dbreg_rw = NULL, /* TODO : FREE THIS */
     .number_processes = 0,
     .current_process = 0,
-    .process = NULL, /* TODO : FREE THIS */
+    //.process = NULL, /* TODO : FREE THIS */
 #ifdef HAVE_THREAD_DB_H
     .ph.pid = 0,
     .ph.target = NULL,
@@ -88,36 +88,32 @@ bool target_new_thread(pid_t pid, pid_t tid, int wait_status, bool waiting,
       break;
   }
 
-  /* No space, tack one onto the end */
-  if (index >= _target.number_processes) {
-    void *try_process = NULL;
-
-    /* Allocate registers for the process */
-    try_process =
-        realloc(_target.process, (_target.number_processes + 1) *
-                                     sizeof(struct target_process_rec));
-    if (!try_process) {
-      goto end;
-    } else {
-      _target.process = try_process;
-      index = _target.number_processes;
-      _target.number_processes++;
-    }
+  /*
+    realloc() makes it hard to debug deebe.
+    Instead we have MAX process set to 1024
+  */
+  if (_target.number_processes < MAX_TARGET_PROCESS) {
+    index = _target.number_processes;
+    _target.number_processes++;
+  } else {
+    printf("Failed to allocate memory for %zd number of processes\n", _target.number_processes);
+    exit(1);
   }
 
   PROCESS_PID(index) = pid;
   PROCESS_TID(index) = tid;
   PROCESS_STATE(index) = PRS_START;
   PROCESS_WAIT_STATUS(index) = wait_status;
-  PROCESS_WAIT(index) = waiting;
-  PROCESS_SIG(index) = sig;
+  PROCESS_WAIT_FLAG(index) = waiting;
+  /*
+    Pending signals are passed because not sure why is this needed
+    hence disabling it completely.
+  */
+  PROCESS_SIG(index) = 0;
   PROCESS_STOP(index) = LLDB_STOP_REASON_SIGNAL;
   ret = true;
 
-end:
-
-  DBG_PRINT("%s pid %x tid %x index %d return %d\n", __func__, pid, tid, index,
-            ret);
+  DBG_PRINT("pid:%d tid:%d index:%d return:%d\n", pid, tid, index, ret);
   return ret;
 }
 
@@ -255,10 +251,10 @@ bool target_thread_make_current(pid_t tid) {
     _target.current_process = index;
     ret = true;
 
-    DBG_PRINT("%s %x %d\n", __func__, tid, index);
+    DBG_PRINT("tid:%d index:%d\n", tid, index);
 
   } else {
-    DBG_PRINT("%s ERROR Invalid tid %x\n", __func__, tid);
+    DBG_PRINT("ERROR Invalid tid %x\n", tid);
   }
   return ret;
 }
@@ -303,4 +299,5 @@ bool target_is_gdb_reg(int gdb, int *g_index, struct reg_location_list *rl) {
   }
   return ret;
 }
+
 

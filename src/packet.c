@@ -444,7 +444,8 @@ int packet_exchange (void)
 
 int packet_quick_exchange (void)
 {
-  size_t in_len = 0;
+  size_t in_len  = 0;
+  in_buf_quick[0]= '\0';
   if (packet_quick_read (in_buf_quick, &in_len))
     return 1;
 

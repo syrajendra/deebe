@@ -152,6 +152,15 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
     int i;
     if (target_is_gdb_reg(r, &i, grll)) {
       memcpy(gdb, _target.reg + grll[i].off, grll[i].size);
+#ifndef DEEBE_RELEASE
+      int j;
+      if (_read_reg_verbose) {
+        printf("Reg:%d Size:%zd ", i, grll[i].size);
+        for (j=0; j<grll[i].size; j++)
+          printf("%02x ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
+        printf("\n");
+      }
+#endif
       memset(avail, 0xff, grll[i].size);
       gdb += grll[i].size;
       avail += grll[i].size;
@@ -163,6 +172,10 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
         gdb += diff;
         avail += diff;
         ret += diff;
+      }
+      else {
+        diff = grll[i].size - grll[i].gdb_size;
+        ret -= diff;
       }
     } else if (target_is_gdb_reg(r, &i, frll)) {
       memcpy(gdb, _target.freg + frll[i].off, frll[i].size);
@@ -177,6 +190,9 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
         gdb += diff;
         avail += diff;
         ret += diff;
+      }  else {
+        diff = frll[i].size - frll[i].gdb_size;
+        ret -= diff;
       }
     } else if (target_is_gdb_reg(r, &i, fxrll)) {
       if ((fxrll[i].off + fxrll[i].size) <= _target.fxreg_size) {
@@ -192,6 +208,9 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
           gdb += diff;
           avail += diff;
           ret += diff;
+        }  else {
+          diff = fxrll[i].size - fxrll[i].gdb_size;
+          ret -= diff;
         }
       } else {
         DBG_PRINT("INTERNAL ERROR : rll entry %d exceeds reg buffer (%zu + "
@@ -492,7 +511,7 @@ int ptrace_attach(pid_t process_id) {
   int ret = RET_ERR;
   int status;
   pid_t wait_child;
-  if (0 != ptrace(PT_ATTACH, process_id, 0, 0)) {
+  if (0 != PTRACE(PT_ATTACH, process_id, 0, 0)) {
     /* Failure */
     DBG_PRINT("Error attaching to pid %d\n", process_id);
     /* Check for security */
@@ -548,7 +567,7 @@ static int _ptrace_detach(int gdb_sig) {
   if (sig < 0)
     sig = 0;
   if (pid > 0) {
-    if (0 != ptrace(PT_DETACH, pid, 0, sig)) { /* XXX convert to pid */
+    if (0 != PTRACE(PT_DETACH, pid, 0, sig)) { /* XXX convert to pid */
       /* Failure */
       if (_detach_verbose) {
         DBG_PRINT("Error detaching from pid %d\n", pid);
@@ -610,7 +629,7 @@ int ptrace_restart(void) {
     try_child = fork();
     if (try_child == 0) {
       /* The child */
-      if (0 != ptrace(PT_TRACE_ME, 0,
+      if (0 != PTRACE(PT_TRACE_ME, 0,
                       /*@null@*/ 0, /*@null@*/ 0)) {
         _exit(PTRACE_ERROR_TRACEME);
       } else {
@@ -975,6 +994,8 @@ int ptrace_write_registers(pid_t tid, uint8_t *data, size_t size) {
 int _ptrace_resume(pid_t pid, pid_t tid, int step, int gdb_sig) {
   int ret = RET_ERR;
   int sig;
+  DBG_PRINT("pid:%d tid:%d step:%d gdb_sig:%d\n",
+            pid, tid, step, gdb_sig);
   int index = target_index(tid);
   if (index >= 0) {
     sig = ptrace_arch_signal_from_gdb(gdb_sig);
@@ -988,7 +1009,7 @@ int _ptrace_resume(pid_t pid, pid_t tid, int step, int gdb_sig) {
      * Also clear the wait flag and reset the wait status
      */
     PROCESS_STATE(index) = PRS_RUN;
-    PROCESS_WAIT(index) = false;
+    PROCESS_WAIT_FLAG(index) = false;
     PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
     PROCESS_SIG(index) = 0;
     if (sig) {
@@ -996,6 +1017,7 @@ int _ptrace_resume(pid_t pid, pid_t tid, int step, int gdb_sig) {
     } else {
       PROCESS_STATE(index) = PRS_RUN;
     }
+    DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index));
     if (step == 0)
       _target.step = false;
     else
@@ -1007,7 +1029,7 @@ int _ptrace_resume(pid_t pid, pid_t tid, int step, int gdb_sig) {
       PROCESS_STATE(index) = PRS_ERR;
       /* Failure */
       if (_resume_current_verbose) {
-        DBG_PRINT("%s Error tid %x index %d step %d sig %d : %s\n", __func__,
+        DBG_PRINT("Error tid %x index %d step %d sig %d : %s\n",
                   tid, index, step, sig, strerror(errno));
       }
     }
@@ -1022,7 +1044,8 @@ int ptrace_resume_with_syscall(pid_t tid) {
   int ret = RET_ERR;
 #ifdef PT_SYSCALL
   errno = 0;
-  if (0 == PTRACE(PT_SYSCALL, tid, PT_SYSCALL_ARG3, 0)) {
+  ret   = PTRACE(PT_SYSCALL, tid, PT_SYSCALL_ARG3, 0);
+  if (0 == ret) {
     /* Success */
     CURRENT_PROCESS_STATE = PRS_RUN;
     ret = RET_OK;
@@ -1031,7 +1054,7 @@ int ptrace_resume_with_syscall(pid_t tid) {
     if (_resume_syscall_verbose) {
       char str[128];
       memset(&str[0], 0, 128);
-      DBG_PRINT("Error in %s\n", __func__);
+      DBG_PRINT("Error in resume with syscall\n");
       if (0 == strerror_r(errno, &str[0], 128)) {
         DBG_PRINT("Error %d %s\n", errno, str);
       } else {
@@ -1079,14 +1102,10 @@ void ptrace_quick_signal(pid_t pid, pid_t tid, int gdb_sig) {
 }
 
 void ptrace_kill(pid_t pid, pid_t tid) {
-  int status;
-
-  /* Make sure it died. The loop is most likely unnecessary. */
-  do {
-    ptrace (PT_KILL, pid, 0, 0);
-    waitpid (pid, &status, 0);
-  } while (WIFSTOPPED (status));
-  
+  DBG_PRINT("Killing tracee\n");
+  /* As per linux manual PTRACE_KILL is deprecated */
+  kill(PROCESS_PID(0), SIGKILL);
+  util_usleep(1000);
   exit(0);
 }
 
@@ -1110,7 +1129,7 @@ int ptrace_add_break(pid_t tid, int type, uint64_t addr, size_t len) {
 
   ret = RET_ERR;
   if (_add_break_verbose) {
-    DBG_PRINT("%s %d %lx %zu\n", __func__, type, kaddr, len);
+    DBG_PRINT("%d %lx %zu\n", type, kaddr, len);
   }
 
   if (type == GDB_INTERFACE_BP_HARDWARE) {
@@ -1298,12 +1317,14 @@ static void _deliver_sig() {
 #if 0
 	int index;
 	for (index = 0; index < _target.number_processes; index++) {
-		if (PROCESS_STATE(index) == PRS_SIG_PENDING) {
+		DBG_PRINT("check tid:%x process_state:%s\n", PROCESS_TID(index), PROCESS_STATE_STR(index));
+    if (PROCESS_STATE(index) == PRS_SIG_PENDING) {
 			int wait_status;
 			int wait_tid;
 			pid_t tid = PROCESS_TID(index);
 			int sig = PROCESS_SIG(index);
-			int errs_max = 5;
+      DBG_PRINT("Signal pending:%d tid:%x\n", sig, tid);
+      int errs_max = 5;
 			int errs = 0;
 			for (errs = 0; errs < errs_max; errs++) {
 				/* Sleep for a msec */
@@ -1311,7 +1332,7 @@ static void _deliver_sig() {
 				wait_tid = waitpid(tid, &wait_status, __WALL | WNOHANG);
 				if (tid == wait_tid) {
 					PROCESS_WAIT_STATUS(index) = wait_status;
-					PROCESS_WAIT(index) = true;
+					PROCESS_WAIT_FLAG(index) = true;
 					break;
 				} else {
 					/* failure, try resending */
@@ -1350,6 +1371,10 @@ bool __exited(char *str, int index, int wait_status) {
       } else {
         /* Signaled */
         int s = WTERMSIG(wait_status);
+        if (ptrace_os_new_thread(0, wait_status)) {
+          DBG_PRINT("its new thread\n");
+          return true;
+        }
         int g = ptrace_arch_signal_to_gdb(s);
         sprintf(str, "X%02x", g);
       }
@@ -1365,7 +1390,7 @@ bool __exited(char *str, int index, int wait_status) {
        * and switch to the parent process
        */
       PROCESS_STATE(index) = PRS_EXIT;
-      PROCESS_WAIT(index) = false;
+      PROCESS_WAIT_FLAG(index) = false;
       /* Need to find a replacement for current thread, use the parent */
       if (index == target_current_index())
         _target.current_process = 0;
@@ -1375,7 +1400,7 @@ bool __exited(char *str, int index, int wait_status) {
 }
 static bool _exited_single(char *str) {
   bool ret = false;
-  if (CURRENT_PROCESS_WAIT)
+  if (CURRENT_PROCESS_WAIT_FLAG)
     ret = __exited(str, target_current_index(), CURRENT_PROCESS_WAIT_STATUS);
   return ret;
 }
@@ -1384,7 +1409,7 @@ static bool _exited_all(char *str) {
   bool ret = false;
   int index;
   for (index = 0; index < _target.number_processes; index++) {
-    if (PROCESS_WAIT(index)) {
+    if (PROCESS_WAIT_FLAG(index)) {
       int wait_status = PROCESS_WAIT_STATUS(index);
       ret = __exited(str, index, wait_status);
       /*
@@ -1401,20 +1426,21 @@ static bool _exited_all(char *str) {
 static void __continued(int index, int wait_status) {
 #ifdef WIFCONTINUED
   if (WIFCONTINUED(wait_status)) {
+    DBG_PRINT("Process %lx updated state to PRS_CONT\n", PROCESS_TID(index));
     PROCESS_STATE(index) = PRS_CONT;
   }
 #endif
 }
 
 static void _continued_single() {
-  if (CURRENT_PROCESS_WAIT)
+  if (CURRENT_PROCESS_WAIT_FLAG)
     __continued(target_current_index(), CURRENT_PROCESS_WAIT_STATUS);
 }
 
 static void _continued_all() {
   int index;
   for (index = 0; index < _target.number_processes; index++) {
-    if (PROCESS_WAIT(index)) {
+    if (PROCESS_WAIT_FLAG(index)) {
       int wait_status = PROCESS_WAIT_STATUS(index);
       __continued(index, wait_status);
     }
@@ -1426,7 +1452,7 @@ static void _stopped_all(char *str) {
   bool no_event = true; /* Nothing to report to gdb */
   /* This does not work for FreeBSD as the threads are not free running */
   for (index = 0; no_event && index < _target.number_processes; index++) {
-    bool process_wait = PROCESS_WAIT(index);
+    bool process_wait = PROCESS_WAIT_FLAG(index);
     if (process_wait) {
       pid_t tid = PROCESS_TID(index);
       int wait_status = PROCESS_WAIT_STATUS(index);
@@ -1434,9 +1460,10 @@ static void _stopped_all(char *str) {
         unsigned long pc = 0;
         int s = WSTOPSIG(wait_status);
         int g = ptrace_arch_signal_to_gdb(s);
+        DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s platform_signal:%d\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index),s);
         ptrace_arch_get_pc(tid, &pc);
         if (_wait_verbose) {
-          DBG_PRINT("stopped at pc 0x%lx %d\n", pc, index);
+          DBG_PRINT("stopped at pc 0x%lx index:%d\n", pc, index);
           if (pc) {
             uint8_t b[32] = {0};
             size_t read_size = 0;
@@ -1502,6 +1529,7 @@ static void _stopped_all(char *str) {
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
               gdb_stop_string(str, g, tid, 0, reason);
+              DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_BREAKPOINT\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
               target_thread_make_current(tid);
               CURRENT_PROCESS_STOP = reason;
               no_event = false;
@@ -1531,7 +1559,8 @@ static void _stopped_all(char *str) {
                 no_event = false;
               }
             } else {
-              DBG_PRINT("Ignoring start state signal %x %d\n", tid, g);
+              DBG_PRINT("Ignoring clone start signal pid:%d tid:%d gdb signal:%d\n", PROCESS_PID(index), PROCESS_TID(index), g);
+              PROCESS_STATE(index) = PRS_STOP;
             }
           } else {
             /*
@@ -1541,12 +1570,14 @@ static void _stopped_all(char *str) {
              */
             if (target_thread_make_current(tid)) {
               /* A non trap signal */
+              DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
               gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
               CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
               no_event = false;
             }
           }
         }
+        DBG_PRINT("pid:%x tid:%x updated state to PRS_CONT\n", PROCESS_PID(index), PROCESS_TID(index));
         PROCESS_STATE(index) = PRS_CONT;
       }
 #ifdef WIFCONTINUED
@@ -1559,6 +1590,8 @@ static void _stopped_all(char *str) {
 }
 
 int ptrace_wait(char *str, int step, bool skip_continue_others) {
+  int ret = RET_ERR;
+  PRINT_ALL_PROCESS_INFO("entry");
   /* Could be waiting awhile, turn on sigio */
   signal_sigio_on();
   if (step) {
@@ -1604,11 +1637,11 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   }
   /* Finished waiting, turn off sigio */
   signal_sigio_off();
-  if (CURRENT_PROCESS_WAIT) {
+  if (CURRENT_PROCESS_WAIT_FLAG) {
     if (strlen(str))
-      return RET_OK;
+      ret = RET_OK;
     else
-      return RET_IGNORE;
+      ret = RET_IGNORE;
   } else {
     /*
      * Could be waiting in this loop for a while.
@@ -1616,8 +1649,12 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
      * that we should respond to.
      */
     packet_quick_exchange ();
-    return RET_CONTINUE_WAIT;
+    ret = RET_CONTINUE_WAIT;
   }
+  PRINT_ALL_PROCESS_INFO("exit");
+  DBG_PRINT("return:%s\n", RETURN_CODE_STR(ret));
+
+  return ret;
 }
 
 void ptrace_threadinfo_query(int first, char *out_buf) {
@@ -1829,19 +1866,40 @@ int ptrace_get_tls_address(int64_t thread, uint64_t offset, uint64_t lm,
 }
 
 #ifndef DEEBE_RELEASE
-int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *srcname, uint line)
+void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, long int ret)
 {
-  errno = 0;
   char str[128];
-  int ret = ptrace(request, pid, addr, data);
   if (errno != 0) {
+    if (errno == ESRCH) {
+       DBG_PRINT("Tracee is dead\n");
+    }
     DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
-    DBG_PRINT("Failed for request : %s pid : %x\n", reqstr, pid);
+    DBG_PRINT("Failed for request %d(%s) pid : %x\n", request, reqstr, pid);
     memset(&str[0], 0, 128);
     if (0 == strerror_r(errno, &str[0], 128)) {
       DBG_PRINT("\tError-code : %d Error-msg : %s\n", errno, str);
     }
-  }
+  } else DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%ld\n", srcname, line, request, reqstr, pid, ret);
+}
+
+#ifdef __linux__
+int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...)
+{
+  errno = 0;
+  va_list args;
+  va_start(args, pid);
+  long int ret = ptrace(request, pid, args);
+  log_ptrace(request, pid, reqstr, srcname, line, ret);
+  va_end(args);
   return ret;
 }
+#else
+int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *srcname, uint line)
+{
+  errno = 0;
+  int ret = ptrace(request, pid, addr, data);
+  log_ptrace(request, pid, reqstr, srcname, line, ret);
+  return ret;
+}
+#endif
 #endif

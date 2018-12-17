@@ -497,7 +497,7 @@ void ptrace_os_wait(pid_t t) {
 
   /* Reset the thread wait state */
   for (index = 0; index < _target.number_processes; index++) {
-    PROCESS_WAIT(index) = false;
+    PROCESS_WAIT_FLAG(index) = false;
     PROCESS_WAIT_STATUS(index) = -1;
   }
   errno = 0;
@@ -522,7 +522,7 @@ void ptrace_os_wait(pid_t t) {
     for (index = 0; index < _target.number_processes; index++) {
       if (PROCESS_PID(index) == pid) {
 	       PROCESS_STATE(index) = PRS_EXIT;
-	       PROCESS_WAIT(index) = true;
+	       PROCESS_WAIT_FLAG(index) = true;
 	       PROCESS_WAIT_STATUS(index) = wait_status;
 	       return;
       }
@@ -554,7 +554,7 @@ void ptrace_os_wait(pid_t t) {
 	PROCESS_STATE(index) = PRS_STOP;
 	/* Expecting everyone to stop or current tid*/
 	if (t == PROCESS_TID(index)) {
-	  PROCESS_WAIT(index) = true;
+	  PROCESS_WAIT_FLAG(index) = true;
 	  PROCESS_WAIT_STATUS(index) = wait_status;
 	}
       }

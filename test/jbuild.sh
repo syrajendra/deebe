@@ -17,12 +17,12 @@ else
 fi
 
 TOP=$PWD
-BUILD=$TOP/build/$OS/$OS_ID/$MACHINE
-INSTALL=$TOP/install/$OS/$OS_ID/$MACHINE
+BUILD=$TOP/jbuild/$OS/$OS_ID/$MACHINE
+INSTALL=$TOP/jinstall/$OS/$OS_ID/$MACHINE
 export PATH=/volume/hab/$OS/$OS_ID/$MACHINE/autoconf/2.69/bin:/volume/hab/$OS/$OS_ID/$MACHINE/automake/1.15/bin:$PATH
 export PATH=/volume/hab/$OS/$OS_ID/$MACHINE/gcc/4.9.4/current/bin:$PATH
 mkdir -p $BUILD $INSTALL
 cd $BUILD
-$TOP/../configure --prefix=$TOP/$INSTALL
+$TOP/../configure --prefix=$TOP/$INSTALL CFLAGS="-DDEEBE_RELEASE"
 make
 make install
