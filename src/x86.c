@@ -247,11 +247,8 @@ static bool _add_hw_debug(pid_t pid, int type, unsigned long addr,
     if (x86_read_debug_reg(pid, DEBUG_CONTROL, &drc)) {
       if ((0 == drc.b.l0) && (0 == drc.b.g0)) {
         drc.b.l0 = 1;
-        drc.b.g0 = 1;
         drc.b.rw0 = rw;
         drc.b.len0 = len;
-        drc.b.le = 1;
-        drc.b.ge = 1;
         if (x86_write_debug_reg(pid, DEBUG_ADDR_0, &addr)) {
           ret = x86_write_debug_reg(pid, DEBUG_CONTROL, &drc);
         }
