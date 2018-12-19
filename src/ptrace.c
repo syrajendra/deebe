@@ -1866,39 +1866,45 @@ int ptrace_get_tls_address(int64_t thread, uint64_t offset, uint64_t lm,
 }
 
 #ifndef DEEBE_RELEASE
-void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, long int ret)
+void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, int perrno, long int ret)
 {
   char str[128];
-  if (errno != 0) {
-    if (errno == ESRCH) {
+  if (perrno != 0) {
+    if (perrno == ESRCH) {
        DBG_PRINT("Tracee is dead\n");
     }
     DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
-    DBG_PRINT("Failed for request %d(%s) pid : %x\n", request, reqstr, pid);
+    DBG_PRINT("Failed for request %d (%s) pid : %x perrno: %d\n", request, reqstr, pid, perrno);
     memset(&str[0], 0, 128);
-    if (0 == strerror_r(errno, &str[0], 128)) {
-      DBG_PRINT("\tError-code : %d Error-msg : %s\n", errno, str);
+    if (0 == strerror_r(perrno, &str[0], 128)) {
+      DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
     }
-  } else DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%ld\n", srcname, line, request, reqstr, pid, ret);
+  } else DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n", srcname, line, request, reqstr, pid, ret);
 }
 
 #ifdef __linux__
 int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...)
 {
-  errno = 0;
+  int perrno;
   va_list args;
   va_start(args, pid);
+  errno = 0;
   long int ret = ptrace(request, pid, args);
-  log_ptrace(request, pid, reqstr, srcname, line, ret);
+  perrno = errno;
+  log_ptrace(request, pid, reqstr, srcname, line, errno, ret);
   va_end(args);
+  errno = perrno;
   return ret;
 }
 #else
 int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *srcname, uint line)
 {
-  errno = 0;
+  int perrno;
+  errno   = 0;
   int ret = ptrace(request, pid, addr, data);
-  log_ptrace(request, pid, reqstr, srcname, line, ret);
+  perrno  = errno;
+  log_ptrace(request, pid, reqstr, srcname, line, errno, ret);
+  errno = perrno;
   return ret;
 }
 #endif

@@ -37,7 +37,52 @@
 #include "os.h"
 
 static bool x86_verbose = false;
+/*
+  u_drs => User Debug Register Status
+  u_drc -> User Debug Register Control
+
+  The u_drs.b<n> is set if the conditions described by
+  DR<n>, len<n> & rw<n> occurs
+
+  Note: Processor sets u_drs.b<n> regardless of whether u_drc.g<n> or
+        u_drc.l<n> is set
+*/
 union u_drc {
+  /* DR7 control register
+      rw<n> : 2 bits
+         00 : Break on instruction execution only
+         01 : Break on data writes only
+         10 : undefined
+         11 : Break on data reads or writes but not instruction fetches
+
+      len<n>: 2 bits
+         00 : one-byte length
+         01 : two-byte length
+         10 : undefined
+         11 : four-byte length
+
+      l<n>  : 1 bit
+        tracer sets local enable bit & it gets automatically reset by processor at
+        every  task switch
+
+      g<n>  : 1 bit
+        tracer sets global enable bit & it is not reset by processor on task switch
+
+      Note: l<n> & g<n> bits are selectively enabled for the four address
+            in DR0 - DR<3> breakpoint conditions.
+
+      le<n>  : 1 bit
+        Local enable for breakpoint at instruction that causes data breakpoint
+        Proccessor clears this bit on task swtich
+
+      ge<n>  : 1 bit
+        Global enable for breakpoint at instruction that causes data breakpoint
+        Processor does not clear this bit on task switch
+
+      gd     : 1 bit
+        General detect enbale flag is set to debug exception occurs when
+        a program attempts to write any of the DR0-DR7 registers
+  */
   struct {
     unsigned l0 : 1;
     unsigned g0 : 1;
@@ -64,28 +109,49 @@ union u_drc {
   unsigned long v;
 };
 
-#define DBP_DEBUG_CONTROL(v)                                                   \
-  DBG_PRINT("dbc.l0 %d\n", v.b.l0);                                            \
-  DBG_PRINT("dbc.g0 %d\n", v.b.g0);                                            \
-  DBG_PRINT("dbc.l1 %d\n", v.b.l1);                                            \
-  DBG_PRINT("dbc.g1 %d\n", v.b.g1);                                            \
-  DBG_PRINT("dbc.l2 %d\n", v.b.l2);                                            \
-  DBG_PRINT("dbc.g2 %d\n", v.b.g2);                                            \
-  DBG_PRINT("dbc.l3 %d\n", v.b.l3);                                            \
-  DBG_PRINT("dbc.g3 %d\n", v.b.g3);                                            \
-  DBG_PRINT("dbc.le %d\n", v.b.le);                                            \
-  DBG_PRINT("dbc.ge %d\n", v.b.ge);                                            \
-  DBG_PRINT("dbc.gd %d\n", v.b.gd);                                            \
-  DBG_PRINT("dbc.rw0 %d\n", v.b.rw0);                                          \
-  DBG_PRINT("dbc.len0 %d\n", v.b.len0);                                        \
-  DBG_PRINT("dbc.rw1 %d\n", v.b.rw1);                                          \
-  DBG_PRINT("dbc.len1 %d\n", v.b.len1);                                        \
-  DBG_PRINT("dbc.rw2 %d\n", v.b.rw2);                                          \
-  DBG_PRINT("dbc.len2 %d\n", v.b.len2);                                        \
-  DBG_PRINT("dbc.rw3 %d\n", v.b.rw3);                                          \
+#define DBP_DEBUG_CONTROL(v)                  \
+  DBG_PRINT("dbc.l0 %d\n", v.b.l0);           \
+  DBG_PRINT("dbc.g0 %d\n", v.b.g0);           \
+  DBG_PRINT("dbc.l1 %d\n", v.b.l1);           \
+  DBG_PRINT("dbc.g1 %d\n", v.b.g1);           \
+  DBG_PRINT("dbc.l2 %d\n", v.b.l2);           \
+  DBG_PRINT("dbc.g2 %d\n", v.b.g2);           \
+  DBG_PRINT("dbc.l3 %d\n", v.b.l3);           \
+  DBG_PRINT("dbc.g3 %d\n", v.b.g3);           \
+  DBG_PRINT("dbc.le %d\n", v.b.le);           \
+  DBG_PRINT("dbc.ge %d\n", v.b.ge);           \
+  DBG_PRINT("dbc.gd %d\n", v.b.gd);           \
+  DBG_PRINT("dbc.rw0 %d\n", v.b.rw0);         \
+  DBG_PRINT("dbc.len0 %d\n", v.b.len0);       \
+  DBG_PRINT("dbc.rw1 %d\n", v.b.rw1);         \
+  DBG_PRINT("dbc.len1 %d\n", v.b.len1);       \
+  DBG_PRINT("dbc.rw2 %d\n", v.b.rw2);         \
+  DBG_PRINT("dbc.len2 %d\n", v.b.len2);       \
+  DBG_PRINT("dbc.rw3 %d\n", v.b.rw3);         \
   DBG_PRINT("dbc.len3 %d\n", v.b.len3)
 
+/*
+  When the processor detects an enabled debug exception
+  it sets bits b0 thru b3 before entering debug exception
+  handler
+*/
 union u_drs {
+  /* DR6 status register
+      b<n> : 1 bit
+        Process sets this bit when associated breakpoint condition is
+        met & debug excption was generated
+
+      bd  : 1 bit
+        Processor sets this bit when debug exception was triggered by
+        single-step execution mode (enabled with trap flag bit in EFLAGS)
+
+      bs  : 1 bit
+        Processor set this bit when debug exception resulted from task swtich
+
+      bt  : 1 bit
+        Processor set this bit when debug exception occured inside RTM region
+        RTM - Restricted Transactional Memory
+  */
   struct {
     unsigned b0 : 1;
     unsigned b1 : 1;
@@ -99,11 +165,16 @@ union u_drs {
   unsigned long v;
 };
 
-#define DBP_DEBUG_STATUS(v)                                                    \
-  DBG_PRINT("drs.b0 %d\n", v.b.b0);                                            \
-  DBG_PRINT("drs.b1 %d\n", v.b.b1);                                            \
-  DBG_PRINT("drs.b2 %d\n", v.b.b2);                                            \
-  DBG_PRINT("drs.b3 %d\n", v.b.b3)
+#define DBP_DEBUG_STATUS(v)              \
+  DBG_PRINT("drs.b0 %d\n", v.b.b0);      \
+  DBG_PRINT("drs.b1 %d\n", v.b.b1);      \
+  DBG_PRINT("drs.b2 %d\n", v.b.b2);      \
+  DBG_PRINT("drs.b3 %d\n", v.b.b3);      \
+  DBG_PRINT("drs.bd %d\n", v.b.bd);      \
+  DBG_PRINT("drs.bs %d\n", v.b.bs);      \
+  DBG_PRINT("drs.bt %d\n", v.b.bt)
+
+
 
 #define DEBUG_ADDR_0 0
 #define DEBUG_ADDR_1 1
@@ -162,6 +233,7 @@ bool _supported_access(unsigned long addr, size_t len) {
 static bool _add_hw_debug(pid_t pid, int type, unsigned long addr,
                           size_t _len) {
   bool ret = false;
+  DBG_PRINT("pid:%d addr:%lx\n", pid, addr);
   if (_supported_access(addr, _len)) {
     union u_drc drc;
     unsigned char len = _len - 1;
@@ -175,8 +247,11 @@ static bool _add_hw_debug(pid_t pid, int type, unsigned long addr,
     if (x86_read_debug_reg(pid, DEBUG_CONTROL, &drc)) {
       if ((0 == drc.b.l0) && (0 == drc.b.g0)) {
         drc.b.l0 = 1;
+        drc.b.g0 = 1;
         drc.b.rw0 = rw;
         drc.b.len0 = len;
+        drc.b.le = 1;
+        drc.b.ge = 1;
         if (x86_write_debug_reg(pid, DEBUG_ADDR_0, &addr)) {
           ret = x86_write_debug_reg(pid, DEBUG_CONTROL, &drc);
         }
@@ -203,6 +278,7 @@ static bool _add_hw_debug(pid_t pid, int type, unsigned long addr,
         }
       }
     }
+    DBP_DEBUG_CONTROL(drc);
   }
   return ret;
 }
@@ -348,11 +424,13 @@ static int _hit_hw_debug(pid_t pid, unsigned long *addr, bool hwbrk) {
   if (x86_read_debug_reg(pid, DEBUG_CONTROL, &drc)) {
 
     if (x86_verbose)
-      DBG_PRINT("%s : drc %x\n", __func__, drc.v);
+      DBG_PRINT("drc %x\n", drc.v);
     union u_drs drs;
     if (x86_read_debug_reg(pid, DEBUG_STATUS, &drs)) {
-      if (x86_verbose)
-        DBG_PRINT("%s : drs %x\n", __func__, drs.v);
+      if (x86_verbose) {
+        DBG_PRINT("drs %x\n", drs.v);
+        DBP_DEBUG_STATUS(drs);
+      }
 
       if (drs.b.b0 && ((1 == drc.b.l0) || (1 == drc.b.g0))) {
         ret = x86_read_debug_reg(pid, DEBUG_ADDR_0, &r_addr);

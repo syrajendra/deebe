@@ -55,18 +55,21 @@
 	//int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...);
 	//#define PTRACE(a, b, ...) 	 	  ptrace_debug(#a, __FILE__, __LINE__, (a), (b), __VA_ARGS__)
 
-	void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, long int ret);
+	void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, int perrno, long int ret);
 	/* Below PTRACE() call has loggging whcih is disabling non-interesting things */
 	/* Change below code as per your requirement */
 	#define PTRACE(a, b, c, d) \
 		({ \
 			errno = 0; \
 			long int ret = ptrace(a, b, c, d); \
+			int _perrno  = errno; \
 			if ((strcmp("PTRACE_GETREGSET", #a) != 0) && \
 				(strcmp("PTRACE_SETREGSET", #a) != 0) && \
 				(strcmp("PT_READ_D", #a) != 0) && \
-				(strcmp("PT_WRITE_D", #a) != 0)) \
-				log_ptrace(a, b, #a, __FILE__, __LINE__, ret); \
+				(strcmp("PT_WRITE_D", #a) != 0)) { \
+				log_ptrace(a, b, #a, __FILE__, __LINE__, _perrno, ret); \
+			} \
+			errno = _perrno; \
 			ret == 0 ? 0 : ret; \
 		})
 	#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
