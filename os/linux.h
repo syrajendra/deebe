@@ -53,9 +53,11 @@
 #else
 	/* Don't know how to implement pass by reference of variable number of arguments */
 	//int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...);
-	//#define PTRACE(a, b, ...) 	 	  ptrace_debug(#a, __FILE__, __LINE__, (a), (b), __VA_ARGS__)
+	//#define PTRACE(a, b, ...) ptrace_debug(#a, __FILE__, __LINE__, (a), (b), __VA_ARGS__)
 
-	void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, int perrno, long int ret);
+	void log_ptrace(int request, pid_t pid, char *reqstr,
+						char *srcname, uint line,
+						int perrno, long int ret);
 	/* Below PTRACE() call has loggging whcih is disabling non-interesting things */
 	/* Change below code as per your requirement */
 	#define PTRACE(a, b, c, d) \

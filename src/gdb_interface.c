@@ -313,7 +313,7 @@ void handle_write_registers_command(char *const in_buf, char *out_buf,
   pid_t tid = CURRENT_PROCESS_TID;
   char *in = &in_buf[1];
 
-  /* Write all registers. Format: 'G;thread:XXXXX;XXXXXXXXXX'. 
+  /* Write all registers. Format: 'G;thread:XXXXX;XXXXXXXXXX'.
      thread suffix may or may not be present. */
   if (!decode_thread_id(&in, ';', &tid)) {
     gdb_interface_write_retval(RET_ERR, out_buf);
