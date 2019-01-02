@@ -1801,6 +1801,10 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
 	if (pid == 0) {
 	  /* Handle the trivial case */
 	  sprintf(out_buf, "F0");
+    /* Remote file read not suported reply with an empty packet
+       that should stop GDB sending any more vFile:setfs packets
+     */
+    //out_buf[0] = '\0';
 	} else {
 	  /* bail */
 	  sprintf(out_buf, "F%d", -1);
