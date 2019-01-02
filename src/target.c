@@ -106,8 +106,8 @@ bool target_new_thread(pid_t pid, pid_t tid, int wait_status, bool waiting,
   PROCESS_WAIT_STATUS(index) = wait_status;
   PROCESS_WAIT_FLAG(index) = waiting;
   /*
-    Pending signals are passed because not sure why is this needed
-    hence disabling it completely.
+    SIGSTOP pending signal is not passed because it will cause stop at clone call
+    Hence disabling it by passing ZERO.
   */
   PROCESS_SIG(index) = 0;
   PROCESS_STOP(index) = LLDB_STOP_REASON_SIGNAL;

@@ -38,6 +38,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/syscall.h>
 #include "global.h"
 #include "dptrace.h"
 #include "breakpoint.h"
@@ -165,6 +166,15 @@ bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status) {
   return ret;
 }
 
+bool is_pid_alive(pid_t pid)
+{
+  if (kill(pid, 0) == -1) {
+      DBG_PRINT("Error: pid:%d is dead %s\n", pid, strerror(errno));
+      return false;
+  }
+  return true;
+}
+
 bool ptrace_os_new_thread(pid_t tid, int status) {
   bool ret = false;
   int e = (status >> 16) & 0xff;
@@ -241,7 +251,24 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
   return ret;
 }
 
-int os_thread_kill(int tid, int sig) { return 1; }
+int os_thread_kill(int tid, int sig) {
+  DBG_PRINT("tid:%d pass signal:%d\n", tid, sig);
+  syscall(SYS_tkill, tid, sig);
+  return 0;
+}
+
+void ptrace_siginfo(pid_t tid) {
+  /* DEBUGGING CODE
+  * Check on why the wait happend
+  */
+  siginfo_t si = { 0 };
+  if (0 == PTRACE(PTRACE_GETSIGINFO, tid, NULL, &si)) {
+    DBG_PRINT("Got siginfo tid:%d signo:%d errno:%d code:%d\n",
+              tid, si.si_signo, si.si_errno, si.si_code);
+  } else {
+    DBG_PRINT("No siginfo\n");
+  }
+}
 
 void ptrace_os_wait(pid_t t) {
   pid_t tid;
@@ -256,15 +283,9 @@ void ptrace_os_wait(pid_t t) {
    */
   while(1) {
     status = -1;
-    if (t != -1) {
-      if (kill(t, 0) == -1) {
-        DBG_PRINT("Error: pid:%d is dead %s\n", t, strerror(errno));
-      }
-    }
-
     tid = waitpid(t, &status, WNOHANG | __WALL);
-    if (tid > 0 && status != -1) {
-      DBG_PRINT("waitpid(%x) returned tid:%x\n", t, tid);
+    if ((tid > 0) && (status != -1)) {
+      DBG_PRINT("waitpid(%d) returned tid:%d\n", t, tid);
       int index;
       index = target_index(tid);
       if (index >= 0) {
@@ -272,7 +293,7 @@ void ptrace_os_wait(pid_t t) {
         PROCESS_WAIT_STATUS(index) = status;
       } else {
         if (!target_new_thread(PROCESS_PID(0), tid, status, true, SIGSTOP)) {
-          DBG_PRINT("Error allocation of new thread failed\n");
+          DBG_PRINT("ERROR: allocation of new thread failed\n");
         }
       }
       break;
@@ -281,9 +302,9 @@ void ptrace_os_wait(pid_t t) {
         usleep (1000);
         continue;
       } else {
-        if(tid == -1 && errno == EINTR) continue;
+        if((tid == -1) && (errno == EINTR)) continue;
         else {
-          DBG_PRINT("Error: parent_pid:%d Failed to run waitpid(%d) return:%d : %s\n",
+          DBG_PRINT("ERROR: parent_pid:%d Failed to run waitpid(%d) return:%d : %s\n",
           				PROCESS_PID(0), t, tid, strerror(errno));
           perror ("waitpid");
           break;
@@ -309,7 +330,8 @@ void ptrace_os_wait(pid_t t) {
 
   if (-1 != status) {
     for (index = 0; index < _target.number_processes; index++) {
-      if ((PROCESS_STATE(index) != PRS_EXIT) && (PROCESS_STATE(index) != PRS_START)) {
+      if ((PROCESS_STATE(index) != PRS_EXIT) &&
+        (PROCESS_STATE(index) != PRS_START)) {
         PROCESS_STATE(index) = PRS_STOP;
         PROCESS_WAIT_FLAG(index) = true;
         /* Expecting everyone to stop or current tid*/
@@ -320,24 +342,12 @@ void ptrace_os_wait(pid_t t) {
     }
   }
 
-PRINT_ALL_PROCESS_INFO("exit");
-
 #ifndef DEEBE_RELEASE
-  /* DEBUGGING CODE
-  * Check on why the wait happend
-  */
-  /*
   if (tid > 0 && status != -1) {
-    siginfo_t si = { 0 };
-    if (0 == PTRACE(PTRACE_GETSIGINFO, tid, NULL, &si)) {
-      DBG_PRINT("Got siginfo tid:%x status:%x signo %x errno %x code  %x\n",
-      				tid, status, si.si_signo, si.si_errno, si.si_code);
-    } else {
-      DBG_PRINT("No siginfo\n");
-    }
+    ptrace_siginfo(tid);
   }
-  */
 #endif
+  PRINT_ALL_PROCESS_INFO("exit");
 }
 
 void ptrace_os_continue_others() {
@@ -379,13 +389,17 @@ long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig) {
    * XXX out of order, does not handle the error
    */
   for (index = 0; index < _target.number_processes; index++) {
-    if ((PROCESS_STATE(index) != PRS_EXIT) && (PROCESS_STATE(index) != PRS_SIG_PENDING)) {
+    if ((PROCESS_STATE(index) != PRS_EXIT) &&
+        (PROCESS_STATE(index) != PRS_SIG_PENDING)) {
       PROCESS_STATE(index) = PRS_RUN;
     }
   }
   index = target_index(tid);
-  DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s\n",
-  				pid, tid, PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index));
+  DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s sig:%d\n",
+  				    pid, tid,
+              PROCESS_WAIT_FLAG(index),
+              PROCESS_STATE_STR(index),
+              sig);
   if (request == PTRACE_CONT)
     ret = PTRACE(PTRACE_CONT, tid, 1, sig);
   else if (request == PTRACE_SINGLESTEP)
@@ -450,6 +464,7 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
       char str[128];
       int tries = 0;
       int max_tries = 20;
+      memset(str, '\0', 128);
       do {
 
         /*
@@ -468,7 +483,7 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
 
         wait_ret = ptrace_wait(str, 0, true);
         if (wait_ret == RET_OK) {
-          DBG_PRINT("hard case %s\n", str);
+          DBG_PRINT("hard case str:[%s]\n", str);
 
           /*
            * When an RET_OK was hit, we have something to report

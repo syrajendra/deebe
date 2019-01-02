@@ -176,21 +176,22 @@ typedef struct target_state_rec {
         } else { \
           _current_msg = ""; \
         } \
-        DBG_PRINT("%s %s pid:%d tid:%d wait_flag:%d process_state:%s\n", \
+        DBG_PRINT("%s %s pid:%d tid:%d wait_flag:%d process_state:%s sig:%d\n", \
           msg, _current_msg, \
           PROCESS_PID(_my_index), \
           PROCESS_TID(_my_index), \
           PROCESS_WAIT_FLAG(_my_index), \
-          PROCESS_STATE_STR(_my_index)); \
+          PROCESS_STATE_STR(_my_index), \
+          PROCESS_SIG(_my_index)); \
       } \
   })
 
 #define PRINT_CURRENT_PROCESS_INFO(msg) \
   ({ \
-      DBG_PRINT("%s current process pid:%d tid:%d wait_flag:%d process_state:%s\n", \
+      DBG_PRINT("%s current process pid:%d tid:%d wait_flag:%d process_state:%s sig:%d\n", \
         msg, CURRENT_PROCESS_PID, \
         CURRENT_PROCESS_TID, CURRENT_PROCESS_WAIT_FLAG, \
-        CURRENT_PROCESS_STATE_STR); \
+        CURRENT_PROCESS_STATE_STR, CURRENT_PROCESS_SIG); \
   })
 
 #define PROCESS_WAIT_STATUS_DEFAULT -1

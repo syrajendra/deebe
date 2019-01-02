@@ -492,6 +492,8 @@ static int _target_wait(char *out_buf, gdb_target *target, int step, int sig) {
       if (ret == RET_IGNORE) {
         target->resume_from_current(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID,
                                     step, sig);
+      } else if (ret == RET_ERR) {
+        DBG_PRINT("ERROR: ptrace_wait() returned error\n");
       }
     } while ((ret == RET_IGNORE) || (ret == RET_CONTINUE_WAIT));
   }
@@ -1456,7 +1458,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
       if (strlen(in) > 2) {
         if (in[0] == ':') {
           if (0 == _decode_thread_id(&in[1], &p, &t)) {
-            DBG_PRINT("processid: %x threadid:%x \n", p, t);
+            DBG_PRINT("processid:%d threadid:%d \n", p, t);
             target->set_gen_thread(p, t);
           }
         }
@@ -1874,6 +1876,20 @@ static void gdb_handle_general_set_command(char *const in_buf, char *out_buf,
   case 'S':
     if (strncmp(n, "StartNoAckMode", 14) == 0) {
       _target.ack = false;
+      ret = RET_OK;
+      goto end;
+    }
+    break;
+
+  case 'P':
+    if (strncmp(n, "PassSignals:", 12) == 0) {
+      n += 12;
+      /* XXX TBD */
+      ret = RET_OK;
+      goto end;
+    } else if (strncmp(n, "ProgramSignals:", 15) == 0) {
+      n += 15;
+      /* XXX TBD */
       ret = RET_OK;
       goto end;
     }

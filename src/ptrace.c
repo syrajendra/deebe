@@ -272,15 +272,16 @@ bool _read_reg(pid_t tid, int GET, int SET, void **reg, uint8_t **reg_rw,
       memset(b, 0xee, buf_size);
       errno = 0;
       ptrace_status = PTRACE_GETSET(GET, tid, 0, a);
+      int perrno = errno;
       if (0 != ptrace_status) {
         /* Failure */
         if (_read_reg_verbose) {
           char str[128];
           memset(&str[0], 0, 128);
-          DBG_PRINT("Error reading registers %d for %x, status is %d\n", GET, tid,
+          DBG_PRINT("Error reading registers tid %d status is %d\n", tid,
                     ptrace_status);
-          if (0 == strerror_r(errno, &str[0], 128)) {
-            DBG_PRINT("Error %d %s\n", errno, str);
+          if (0 == strerror_r(perrno, &str[0], 128)) {
+            DBG_PRINT("Error %d %s\n", perrno, str);
           }
         }
       } else {
@@ -1090,15 +1091,11 @@ void ptrace_quick_kill(pid_t pid, pid_t tid) {
 }
 
 void ptrace_quick_signal(pid_t pid, pid_t tid, int gdb_sig) {
-#if 0
   /* This is how the routine should work */
   int sig;
   sig = ptrace_arch_signal_from_gdb(gdb_sig);
   if (sig > 0)
     kill(pid, sig);
-#endif
-  /* But be blunt */
-  kill(pid, SIGTRAP);
 }
 
 void ptrace_kill(pid_t pid, pid_t tid) {
@@ -1317,13 +1314,17 @@ static void _deliver_sig() {
 #if 0
 	int index;
 	for (index = 0; index < _target.number_processes; index++) {
-		DBG_PRINT("check tid:%x process_state:%s\n", PROCESS_TID(index), PROCESS_STATE_STR(index));
-    if (PROCESS_STATE(index) == PRS_SIG_PENDING) {
+		DBG_PRINT("check tid:%d process_state:%s sig:%d\n",
+              PROCESS_TID(index),
+              PROCESS_STATE_STR(index),
+              PROCESS_SIG(index));
+    if ((PROCESS_STATE(index) == PRS_SIG_PENDING) &&
+        PROCESS_SIG(index) > 0 ) {
 			int wait_status;
 			int wait_tid;
 			pid_t tid = PROCESS_TID(index);
 			int sig = PROCESS_SIG(index);
-      DBG_PRINT("Signal pending:%d tid:%x\n", sig, tid);
+      DBG_PRINT("Signal pending:%d tid:%d\n", sig, tid);
       int errs_max = 5;
 			int errs = 0;
 			for (errs = 0; errs < errs_max; errs++) {
@@ -1331,8 +1332,18 @@ static void _deliver_sig() {
 				util_usleep(100);
 				wait_tid = waitpid(tid, &wait_status, __WALL | WNOHANG);
 				if (tid == wait_tid) {
-					PROCESS_WAIT_STATUS(index) = wait_status;
-					PROCESS_WAIT_FLAG(index) = true;
+          if (WIFCONTINUED(wait_status)) {
+            PROCESS_WAIT_FLAG(index) = false;
+            PROCESS_STATE(index) = PRS_CONT;
+          } else if (WIFSTOPPED(wait_status)) {
+					  PROCESS_WAIT_FLAG(index) = true;
+            PROCESS_STATE(index) = PRS_STOP;
+          } else if (WIFEXITED(wait_status)) {
+            PROCESS_WAIT_FLAG(index) = false;
+            PROCESS_STATE(index) = PRS_EXIT;
+          }
+          PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
+          PROCESS_SIG(index) = 0;
 					break;
 				} else {
 					/* failure, try resending */
@@ -1452,6 +1463,7 @@ static void _stopped_all(char *str) {
   bool no_event = true; /* Nothing to report to gdb */
   /* This does not work for FreeBSD as the threads are not free running */
   for (index = 0; no_event && index < _target.number_processes; index++) {
+    DBG_PRINT("pid:%d tid:%d wait_flag:%d\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index));
     bool process_wait = PROCESS_WAIT_FLAG(index);
     if (process_wait) {
       pid_t tid = PROCESS_TID(index);
@@ -1460,7 +1472,7 @@ static void _stopped_all(char *str) {
         unsigned long pc = 0;
         int s = WSTOPSIG(wait_status);
         int g = ptrace_arch_signal_to_gdb(s);
-        DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s platform_signal:%d\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index),s);
+        DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s platform_signal:%d gdb_signal:%d\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), s, g);
         ptrace_arch_get_pc(tid, &pc);
         if (_wait_verbose) {
           DBG_PRINT("stopped at pc 0x%lx index:%d\n", pc, index);
@@ -1529,7 +1541,7 @@ static void _stopped_all(char *str) {
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
               gdb_stop_string(str, g, tid, 0, reason);
-              DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_BREAKPOINT\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
+              DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_BREAKPOINT\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
               target_thread_make_current(tid);
               CURRENT_PROCESS_STOP = reason;
               no_event = false;
@@ -1570,27 +1582,28 @@ static void _stopped_all(char *str) {
              */
             if (target_thread_make_current(tid)) {
               /* A non trap signal */
-              DBG_PRINT("pid:%x tid:%x wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
+              DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n", PROCESS_PID(index), PROCESS_TID(index), PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
               gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
               CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
               no_event = false;
             }
-          }
-        }
-        DBG_PRINT("pid:%x tid:%x updated state to PRS_CONT\n", PROCESS_PID(index), PROCESS_TID(index));
+          } /* else */
+        } /* else */
+        DBG_PRINT("pid:%d tid:%d updated state to PRS_CONT\n", PROCESS_PID(index), PROCESS_TID(index));
         PROCESS_STATE(index) = PRS_CONT;
-      }
+      } /* WIFSTOPPED */
 #ifdef WIFCONTINUED
       else if (WIFCONTINUED(wait_status)) {
         CURRENT_PROCESS_STATE = PRS_CONT;
-      }
+      } /* WIFCONTINUED */
 #endif
-    } /* Waiting */
+    } /* process waiting */
   }   /* process loop */
 }
 
 int ptrace_wait(char *str, int step, bool skip_continue_others) {
   int ret = RET_ERR;
+  if(str) str[0] = '\0'; /* clear old string */
   PRINT_ALL_PROCESS_INFO("entry");
   /* Could be waiting awhile, turn on sigio */
   signal_sigio_on();
@@ -1707,7 +1720,6 @@ void ptrace_supported_features_query(char *out_buf) {
 
 	sprintf(str, "QProgramSignals+;");
 	strcat(out_buf, str);
-
 #endif
   /*
    * gdb
@@ -1770,6 +1782,7 @@ int ptrace_set_gen_thread(int64_t pid, int64_t tid) {
     /* only pid is valid, but it is really tid */
     key = pid;
   }
+  DBG_PRINT("pid:%d tid:%d\n", pid, tid);
   if ((key == 0) || (key == -1)) {
     /* TODO HANDLE */
     ret = RET_OK;
@@ -1871,15 +1884,19 @@ void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname, uint line, 
   char str[128];
   if (perrno != 0) {
     if (perrno == ESRCH) {
-       DBG_PRINT("Tracee is dead\n");
+       DBG_PRINT("Tracee pid %d is dead or not traced or not stopped\n", pid);
     }
     DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
-    DBG_PRINT("Failed for request %d (%s) pid : %x perrno: %d\n", request, reqstr, pid, perrno);
+    DBG_PRINT("Failed for request %d (%s) pid : %d perrno: %d\n", request, reqstr, pid, perrno);
     memset(&str[0], 0, 128);
     if (0 == strerror_r(perrno, &str[0], 128)) {
       DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
     }
-  } else DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n", srcname, line, request, reqstr, pid, ret);
+  } else {
+    if (request != 3) {
+      DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n", srcname, line, request, reqstr, pid, ret);
+    }
+  }
 }
 
 #ifdef __linux__

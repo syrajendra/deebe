@@ -66,7 +66,9 @@
 			if ((strcmp("PTRACE_GETREGSET", #a) != 0) && \
 				(strcmp("PTRACE_SETREGSET", #a) != 0) && \
 				(strcmp("PT_READ_D", #a) != 0) && \
-				(strcmp("PT_WRITE_D", #a) != 0)) { \
+				(strcmp("PT_WRITE_D", #a) != 0) && \
+				(strcmp("PTRACE_PEEKUSER", #a) != 0) && \
+				(strcmp("PTRACE_POKEUSER", #a) != 0) ) { \
 				log_ptrace(a, b, #a, __FILE__, __LINE__, _perrno, ret); \
 			} \
 			errno = _perrno; \
