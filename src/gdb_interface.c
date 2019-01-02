@@ -1412,6 +1412,14 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
   char *n = in_buf;
   bool handled = false;
   bool binary_cmd = false;
+  sprintf(str, "vKill");
+  if (strncmp(str, n, strlen(str)) == 0) {
+    if (gdb_interface_target->kill) {
+      dbg_ack_packet_received(false, NULL);
+      gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
+      ret = RET_OK;
+    }
+  }
   sprintf(str, "vCont");
   if (strncmp(str, n, strlen(str)) == 0) {
     n += strlen(str);

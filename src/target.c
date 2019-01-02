@@ -52,7 +52,7 @@ target_state _target = {
                   * Since AllStop is the oldest mode, default to that.
                   */
     .nonstop = NS_ON,
-    .multiprocess = 0, /* default to supporting multiple processes */
+    .multiprocess = 1, /* default to supporting multiple processes */
     .xml_register_reporting = false, /* default to old style reporting */
     .step = false,                   /* no single stepping here.. */
     .syscall_enter = false,
