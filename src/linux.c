@@ -349,14 +349,14 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
         DBG_PRINT("ERROR: tid:%d exited with status:%d\n",
                     tid, WEXITSTATUS(*status));
         PROCESS_STATE(index)      = PRS_EXIT;
-        PROCESS_WAIT_FLAG(index)  = false;
+        PROCESS_WAIT_FLAG(index)  = true;
       } else if (WIFSIGNALED(*status)) {
         int s = WTERMSIG(*status);
         if (s != SIGINT) {
           DBG_PRINT("ERROR: tid:%d killed by signal:%d\n",
                     tid, s);
           PROCESS_STATE(index)      = PRS_EXIT;
-          PROCESS_WAIT_FLAG(index)  = false;
+          PROCESS_WAIT_FLAG(index)  = true;
         } else {
           PROCESS_STATE(index)      = PRS_STOP;
           PROCESS_WAIT_FLAG(index)  = true;
@@ -403,7 +403,7 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
   }
   /* got some signal or error */
 #ifndef DEEBE_RELEASE
-      if (tid > 0 && *status != -1) {
+      if (tid > 0 && *status != -1 && *status != 0) {
         siginfo_t si = { 0 };
         ptrace_siginfo(tid, &si);
       }
