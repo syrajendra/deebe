@@ -463,12 +463,11 @@ void ptrace_os_continue_others(pid_t ctid) {
   if (NS_ON == _target.nonstop) {
     int index;
     for (index = 0; index < _target.number_processes; index++) {
-      pid_t pid = PROCESS_PID(index);
       pid_t tid = PROCESS_TID(index);
       bool wait = PROCESS_WAIT_FLAG(index);
 
-      DBG_PRINT("pid:%d tid:%d cont_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
-      				pid, tid, ctid, wait,
+      DBG_PRINT("tid:%d cont_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
+      				tid, ctid, wait,
       				PROCESS_STATE_STR(index), PROCESS_SIG(index));
       if (!wait || (tid == ctid)) {
         continue;
