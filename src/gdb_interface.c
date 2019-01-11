@@ -2211,6 +2211,7 @@ void gdb_stop_string(char *str, int sig, pid_t tid, unsigned long watch_addr,
       strncat(str, reasons[reason], len);
     }
   }
+  DBG_PRINT("str:[%s]\n", str);
 }
 
 int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)

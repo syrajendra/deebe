@@ -88,14 +88,14 @@ int get_process_state(pid_t tid)
           }
           default  :
           {
-            DBG_PRINT("ERROR: Unsupported process state:%d tid:%d\n", state, tid);
+            DBG_PRINT("ERROR: Unsupported process state:%d tid:%d ret:PRS_NULL\n", state, tid);
             ret = PRS_NULL;
             break;
           }
         } /* switch */
         fclose(fd);
       } else {
-        DBG_PRINT("ERROR: Failed to get process state of tid:%d\n", tid);
+        DBG_PRINT("ERROR: Failed to get process state of tid:%d ret:PRS_ERR\n", tid);
         return PRS_ERR;
       }
     } /* if block */
@@ -324,7 +324,7 @@ void ptrace_siginfo(pid_t tid, siginfo_t *si) {
     } else if (si->si_code == SIGEV_THREAD) { // si_code = 2
       DBG_PRINT("Signal: deliver via thread creation\n");
     } else if (si->si_code == ((SIGTRAP | PTRACE_EVENT_CLONE << 8))) { // si_code = 773 = 0x305
-      DBG_PRINT("Singal: trap deliverd for clone system call\n");
+      DBG_PRINT("Signal: trap deliverd for clone system call\n");
     } else {
       DBG_PRINT("ERROR: NOT HANDLED si_code:%d\n", si->si_code);
     }
@@ -449,19 +449,22 @@ long ptrace_os_continue_and_wait(pid_t tid, int sig)
   if (real_state == PRS_STOP) {
     /* since child is in stopped state continue it */
     ret = PTRACE(PTRACE_CONT, tid, 1, sig);
-    DBG_PRINT("Waiting for tid:%d to run/stop PTRACE_CONT ret:%d\n", tid, ret);
-    while(1) {
-      if (get_process_state(tid) == PRS_RUN) break;
-      int status = -1;
-      int wait_tid = ptrace_os_waitpid(tid, &status);
-      if (wait_tid == 0) { /* no children in a waitable state */
-        //DBG_PRINT("No children in waitable state \n");
-        util_usleep(1000);
-        continue;
-      } else {
-        break;
-      }
-    }
+    DBG_PRINT("Waiting for tid:%d to run/stop PTRACE_CONT ret:%d\n",
+                tid, ret);
+    util_usleep(1000);
+
+    //while(1) {
+      //if (get_process_state(tid) == PRS_RUN) break;
+      //int status = -1;
+      //int wait_tid = ptrace_os_waitpid(tid, &status);
+      //if (wait_tid == 0) { /* no children in a waitable state */
+      //  //DBG_PRINT("No children in waitable state \n");
+      //  util_usleep(1000);
+      //  continue;
+      //} else {
+      //  break;
+      //}
+    //}
   }
   return ret;
 }

@@ -1355,14 +1355,11 @@ static void _deliver_sig(int sig, int change_state) {
     /* lucky */
     if (change_state == real_state) {
       PROCESS_STATE(index) = real_state;
-      if (PROCESS_STATE(index) == PRS_STOP)
-        PROCESS_WAIT_FLAG(index) = true;
-      else
-        PROCESS_WAIT_FLAG(index) = false;
+      PROCESS_WAIT_FLAG(index) = true;
       continue;
     }
 
-    if ( (change_state != real_state) && (sig > 0) ) {
+    if (sig > 0) {
       if ( (real_state != PRS_STOP) && (real_state != PRS_EXIT) ) {
         if ( !ptrace_os_new_thread(PROCESS_WAIT_STATUS(index)) ) {
 
@@ -1688,25 +1685,45 @@ static void _stopped_all(char *str) {
 static int is_all_stopped()
 {
   int index;
-  //PRINT_ALL_PROCESS_INFO("check");
   for (index = 0; index < _target.number_processes; index++) {
     int real_state = get_process_state(PROCESS_TID(index));
-    if (!PROCESS_WAIT_FLAG(index)) {
-      if (real_state == PRS_STOP)
-        PROCESS_WAIT_FLAG(index) = true;
-      else
-        return 0;
-    }
-    if (real_state != PRS_STOP) {
-      DBG_PRINT("Thread tid:%d not in stop but in state:%s\n",
-        PROCESS_TID(index),
-        STATE_STR(get_process_state(PROCESS_TID(index))));
+    if (!((real_state == PRS_STOP) ||
+          (real_state == PRS_EXIT) ||
+          (real_state == PRS_ERR))) {
       return 0;
     }
   }
   return 1;
 }
 
+
+#if 0
+static int is_all_stopped()
+{
+  int index;
+  for (index = 0; index < _target.number_processes; index++) {
+    int real_state = get_process_state(PROCESS_TID(index));
+    if (!PROCESS_WAIT_FLAG(index)) {
+      if (real_state == PRS_STOP || real_state == PRS_EXIT)
+        PROCESS_WAIT_FLAG(index) = true;
+      else {
+        DBG_PRINT("Thread tid:%d waitflag not set & real_state:%s\n",
+        PROCESS_TID(index),
+        STATE_STR(real_state));
+        return 0;
+      }
+    }
+    if (real_state != PRS_STOP || real_state != PRS_EXIT) {
+      DBG_PRINT("Thread tid:%d not in stop but in state:%s\n",
+        PROCESS_TID(index),
+        STATE_STR(real_state));
+      return 0;
+    }
+    PROCESS_STATE(index) = real_state;
+  }
+  return 1;
+}
+#endif
 int ptrace_wait(char *str, int step, bool skip_continue_others) {
   int ret = RET_ERR;
   if(str) str[0] = '\0'; /* clear old string */
@@ -1759,17 +1776,17 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   /* make sure current process & all threads are in stopped state */
   if (CURRENT_PROCESS_WAIT_FLAG) {
      if (!strlen(str)) ret = RET_IGNORE;
-     else if(is_all_stopped()) {
-        ret = RET_OK;
-     } else {
-         _deliver_sig(SIGSTOP, PRS_STOP);
-         if(is_all_stopped()) {
-            DBG_PRINT("All threads in stopped state\n");
-         } else {
-            DBG_PRINT("ERROR: All threads not in stopped state\n");
-         }
-         ret = RET_OK;
+     else {
+      DBG_PRINT("Waiting for all threads to stop/exit\n");
+      while(1) {
+        if(is_all_stopped()) {
+          DBG_PRINT("All threads in stopped/exited state\n");
+          ret = RET_OK;
+          break;
+        }
+        _deliver_sig(SIGSTOP, PRS_STOP);
       }
+     }
   } else {
     ret = RET_CONTINUE_WAIT;
   }
