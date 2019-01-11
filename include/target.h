@@ -129,9 +129,8 @@ typedef struct target_state_rec {
 #define CURRENT_PROCESS_SYSCALL PROCESS_SYSCALL(_target.current_process)
 #define CURRENT_PROCESS_STOP PROCESS_STOP(_target.current_process)
 
-#define PROCESS_STATE_STR(n) \
+#define STATE_STR(_ps) \
   ({ \
-    int _ps  = PROCESS_STATE(n); \
     char *_ret= NULL; \
     switch(_ps) { \
       case 0 : _ret = "PRS_NULL"; break; \
@@ -149,6 +148,13 @@ typedef struct target_state_rec {
       case 12 : _ret = "PRS_SYSCALL_EXIT"; break; \
     } \
     _ret ? _ret : NULL; \
+  })
+
+
+#define PROCESS_STATE_STR(n) \
+  ({ \
+    int _ps  = PROCESS_STATE(n); \
+    STATE_STR(_ps); \
   })
 
 #define CURRENT_PROCESS_STATE_STR PROCESS_STATE_STR(_target.current_process)
@@ -176,10 +182,11 @@ typedef struct target_state_rec {
         } else { \
           _current_msg = ""; \
         } \
-        DBG_PRINT("%s %s pid:%d tid:%d wait_flag:%d process_state:%s sig:%d\n", \
+        DBG_PRINT("%s %s pid:%d tid:%d wait_status:0x%x wait_flag:%d process_state:%s sig:%d\n", \
           msg, _current_msg, \
           PROCESS_PID(_my_index), \
           PROCESS_TID(_my_index), \
+          PROCESS_WAIT_STATUS(_my_index), \
           PROCESS_WAIT_FLAG(_my_index), \
           PROCESS_STATE_STR(_my_index), \
           PROCESS_SIG(_my_index)); \
@@ -188,10 +195,28 @@ typedef struct target_state_rec {
 
 #define PRINT_CURRENT_PROCESS_INFO(msg) \
   ({ \
-      DBG_PRINT("%s current process pid:%d tid:%d wait_flag:%d process_state:%s sig:%d\n", \
+      DBG_PRINT("%s current process pid:%d tid:%d wait_status:0x%x wait_flag:%d process_state:%s sig:%d\n", \
         msg, CURRENT_PROCESS_PID, \
-        CURRENT_PROCESS_TID, CURRENT_PROCESS_WAIT_FLAG, \
+        CURRENT_PROCESS_TID, CURRENT_PROCESS_WAIT_STATUS, \
+        CURRENT_PROCESS_WAIT_FLAG, \
         CURRENT_PROCESS_STATE_STR, CURRENT_PROCESS_SIG); \
+  })
+
+/* below event codes defined here /usr/include/sys/ptrace.h */
+#define PTRACE_EVENT_STR(_wait_status) \
+  ({ \
+    char *_ret = NULL; \
+    int _event = (_wait_status >> 16) & 0xff; \
+    switch(_event) { \
+      case 1 : _ret  = "PTRACE_EVENT_FORK"; break; \
+      case 2 : _ret  = "PTRACE_EVENT_VFORK"; break; \
+      case 3 : _ret  = "PTRACE_EVENT_CLONE"; break; \
+      case 4 : _ret  = "PTRACE_EVENT_EXEC"; break; \
+      case 5 : _ret  = "PTRACE_EVENT_VFORK_DONE"; break; \
+      case 6 : _ret  = "PTRACE_EVENT_EXIT"; break; \
+      default : _ret = "PTRACE_NO_EVENT"; break; \
+    } \
+    _ret ? _ret : NULL; \
   })
 
 #define PROCESS_WAIT_STATUS_DEFAULT -1

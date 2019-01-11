@@ -1481,6 +1481,8 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
         if (RET_OK == ret) {
           ret = _target_wait(out_buf, target, step, sig);
           handled = true;
+        } else {
+          DBG_PRINT("resume_from_current returned not OK\n");
         }
       }
     }
@@ -2127,6 +2129,7 @@ void gdb_stop_string(char *str, int sig, pid_t tid, unsigned long watch_addr,
   char tstr[32] = "";
   char wstr[32] = "";
   size_t len = INOUTBUF_SIZE;
+
   /*
    * lldb always wants the thread id
    * gdb only wants it if isn't the main pid/thread's
@@ -2219,6 +2222,7 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
   if (_gdb_interface_verbose) {
     in_buf[in_len] = '\0';
     DBG_PRINT("IN: %s\n", in_buf);
+    //PRINT_CURRENT_PROCESS_INFO("");
   }
 #endif
   /*

@@ -155,9 +155,9 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
 #ifndef DEEBE_RELEASE
       int j;
       if (_read_reg_verbose) {
-        printf("Reg:%d Size:%zd ", i, grll[i].size);
-        for (j=0; j<grll[i].size; j++)
-          printf("%02x ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
+        printf("Reg:%d Name:%s Size:%zd ", i, grll[i].name, grll[i].size);
+        for (j=grll[i].size-1; j>=0; j--)
+          printf("%02X ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
         printf("\n");
       }
 #endif
@@ -747,6 +747,7 @@ int ptrace_read_registers(pid_t tid, uint8_t *data, uint8_t *avail,
   uint8_t *g = data;
   uint8_t *ga = avail;
   size_t s = 0;
+  //printf("Read register tid:%d\n", tid);
   if (_read_greg(tid)) {
     if (_read_freg(tid)) {
       ptrace_arch_read_fxreg(tid);
@@ -1313,56 +1314,102 @@ int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
 
   return ret;
 }
-
-static void _deliver_sig() {
 #if 0
+static void update_process_state(pid_t tid)
+{
+  int wait_status;
+  int wait_tid;
+  int real_state;
+  int index      = target_index(tid);
+  real_state     = get_process_state(tid);
+  DBG_PRINT("Waiting for tid:%d to update state real_state:%s state:%s\n",
+              tid, STATE_STR(real_state), STATE_STR(PROCESS_STATE(index)));
+  do {
+    wait_status  = -1;
+    wait_tid     = ptrace_os_waitpid(tid, &wait_status);
+    if (wait_tid == tid) {
+      real_state   = get_process_state(tid);
+      DBG_PRINT("tid:%d reported stop\n", wait_tid);
+    } else if (wait_tid == 0) {
+      //DBG_PRINT("No children in waitable state \n");
+      util_usleep(100);
+    }
+  } while(real_state != PROCESS_STATE(index));
+}
+#endif
+
+static int ignore_signal[MAX_TARGET_PROCESS];
+static void _deliver_sig(int sig, int change_state) {
+#if __linux__
 	int index;
 	for (index = 0; index < _target.number_processes; index++) {
-		DBG_PRINT("check tid:%d process_state:%s sig:%d\n",
-              PROCESS_TID(index),
-              PROCESS_STATE_STR(index),
-              PROCESS_SIG(index));
-    if ((PROCESS_STATE(index) == PRS_SIG_PENDING) &&
-        PROCESS_SIG(index) > 0 ) {
-			int wait_status;
-			int wait_tid;
-			pid_t tid = PROCESS_TID(index);
-			int sig = PROCESS_SIG(index);
-      DBG_PRINT("Signal pending:%d tid:%d\n", sig, tid);
-      int errs_max = 5;
-			int errs = 0;
-			for (errs = 0; errs < errs_max; errs++) {
-				/* Sleep for a msec */
-				util_usleep(100);
-				wait_tid = waitpid(tid, &wait_status, __WALL | WNOHANG);
-				if (tid == wait_tid) {
-          if (WIFCONTINUED(wait_status)) {
-            PROCESS_WAIT_FLAG(index) = false;
-            PROCESS_STATE(index) = PRS_CONT;
-          } else if (WIFSTOPPED(wait_status)) {
-					  PROCESS_WAIT_FLAG(index) = true;
-            PROCESS_STATE(index) = PRS_STOP;
-          } else if (WIFEXITED(wait_status)) {
-            PROCESS_WAIT_FLAG(index) = false;
-            PROCESS_STATE(index) = PRS_EXIT;
-          }
-          PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
-          PROCESS_SIG(index) = 0;
-					break;
-				} else {
-					/* failure, try resending */
-					os_thread_kill(tid, sig);
-					util_usleep(100);
-				}
-			}
-		}
-	}
+    if (CURRENT_PROCESS_TID == PROCESS_TID(index)) continue;
+
+    int real_state = get_process_state(PROCESS_TID(index));
+    DBG_PRINT("tid:%d state:%s real_state:%s change_state:%s\n",
+                PROCESS_TID(index),
+                PROCESS_STATE_STR(index),
+                STATE_STR(real_state),
+                STATE_STR(change_state));
+
+    /* lucky */
+    if (change_state == real_state) {
+      PROCESS_STATE(index) = real_state;
+      if (PROCESS_STATE(index) == PRS_STOP)
+        PROCESS_WAIT_FLAG(index) = true;
+      else
+        PROCESS_WAIT_FLAG(index) = false;
+      continue;
+    }
+
+    if ( (change_state != real_state) && (sig > 0) ) {
+      if ( (real_state != PRS_STOP) && (real_state != PRS_EXIT) ) {
+        if ( !ptrace_os_new_thread(PROCESS_WAIT_STATUS(index)) ) {
+
+          /* deebe stored state & actual state does not match */
+          //if(PROCESS_STATE(index) != real_state) update_process_state(PROCESS_TID(index));
+		    	int wait_status;
+		    	int wait_tid;
+		    	pid_t tid = PROCESS_TID(index);
+          DBG_PRINT("Waiting for tid:%d to receive signal:%d\n", tid, sig);
+		    	/* send signal */
+          os_thread_kill(tid, sig);
+          while (1) {
+            /* Sleep for a msec */
+            util_usleep(1000);
+            /* wait for the signal to takes affect */
+            wait_status = -1;
+		    		wait_tid = ptrace_os_waitpid(tid, &wait_status);
+		    		if ((tid == wait_tid)) {
+                if ((WSTOPSIG(wait_status) == sig)) {
+                  PROCESS_WAIT_STATUS(index)  = PROCESS_WAIT_STATUS_DEFAULT;
+                  DBG_PRINT("tid:%d reported sig stop\n", wait_tid);
+                } else {
+                  PROCESS_WAIT_STATUS(index)  = wait_status;
+                  DBG_PRINT("tid:%d reported other signal\n", wait_tid);
+                  ignore_signal[index] = sig;
+                }
+                PROCESS_SIG(index)          = 0;
+                PROCESS_STATE(index)        = PRS_STOP;
+                PROCESS_WAIT_FLAG(index)    = true;
+		    			break;
+		    		} else if (tid == 0) { /* pid not in a waitable state */
+              //DBG_PRINT("No children in waitable state \n");
+		    			continue;
+		    		}
+		    	} /* while loop */
+        } /* ptrace_os_new_thread */
+		  }
+    }
+  } /* for loop */
 #endif
 }
 
-void _wait_all() { ptrace_os_wait(-1); }
+void _wait_all(int step) {
+  ptrace_os_wait(-1, step);
+}
 
-void _wait_single() { ptrace_os_wait(CURRENT_PROCESS_TID); }
+void _wait_single(int step) { ptrace_os_wait(CURRENT_PROCESS_TID, step); }
 
 bool __exited(char *str, int index, int wait_status) {
   bool ret = false;
@@ -1386,7 +1433,7 @@ bool __exited(char *str, int index, int wait_status) {
       } else {
         /* Signaled */
         int s = WTERMSIG(wait_status);
-        if (ptrace_os_new_thread(0, wait_status)) {
+        if (ptrace_os_new_thread(wait_status)) {
           DBG_PRINT("its new thread\n");
           return true;
         }
@@ -1467,10 +1514,10 @@ static void _stopped_all(char *str) {
   bool no_event = true; /* Nothing to report to gdb */
   /* This does not work for FreeBSD as the threads are not free running */
   for (index = 0; no_event && index < _target.number_processes; index++) {
-    DBG_PRINT("pid:%d tid:%d wait_flag:%d\n",
-                PROCESS_PID(index),
-                PROCESS_TID(index),
-                PROCESS_WAIT_FLAG(index));
+    //DBG_PRINT("pid:%d tid:%d wait_flag:%d\n",
+    //            PROCESS_PID(index),
+    //            PROCESS_TID(index),
+    //            PROCESS_WAIT_FLAG(index));
     bool process_wait = PROCESS_WAIT_FLAG(index);
     if (process_wait) {
       pid_t tid = PROCESS_TID(index);
@@ -1493,6 +1540,7 @@ static void _stopped_all(char *str) {
           }
         }
         if (s == SIGTRAP) {
+          DBG_PRINT("**** GOT SIGTRAP SIGNAL ****\n");
           unsigned long watch_addr = 0;
           /* Fill out the status string */
           if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
@@ -1519,7 +1567,7 @@ static void _stopped_all(char *str) {
              * Looking for a thread create or an increase in the threads
              * reported by the kernel.
              */
-            if (!ptrace_os_new_thread(tid, wait_status)) {
+            if (!ptrace_os_new_thread(wait_status)) {
               /* A normal breakpoint was hit, or a trap instruction */
               int reason;
               if (_target.step) {
@@ -1557,9 +1605,19 @@ static void _stopped_all(char *str) {
               target_thread_make_current(tid);
               CURRENT_PROCESS_STOP = reason;
               no_event = false;
+              PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
+            } /* if ptrace_os_new_thread */
+            else
+            {
+              DBG_PRINT("Parent process:%d got SIGTRAP because of clone ignore it\n", tid);
+              target_thread_make_current(tid);
+              PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
             }
-          }
-        } else {
+          } /* else */
+        } /* if SIGTRAP */
+        else
+        {
+          DBG_PRINT("**** GOT NON_SIGTRAP SIGNAL ****\n");
           /*
            * On linux, thread indicates it has been started
            * by starting with a STOP signal.  When this is
@@ -1571,59 +1629,92 @@ static void _stopped_all(char *str) {
            * process is in the start state
            *
            */
-          if (PRS_START == PROCESS_STATE(index)) {
-            if (NS_OFF == _target.nonstop) {
-              /* Remap signal to SIGTRAP */
-              g = ptrace_arch_signal_to_gdb(SIGTRAP);
-              /* Need to report to gdb */
+
+          DBG_PRINT("Process pid:%d tid:%d state:%s\n",
+                      PROCESS_PID(index),
+                      PROCESS_TID(index),
+                      PROCESS_STATE_STR(index));
+
+          if (ignore_signal[index] != s) {
+            if (PRS_START == PROCESS_STATE(index)) {
+                DBG_PRINT("Ignoring clone stop signal pid:%d tid:%d gdb signal:%d\n",
+                            PROCESS_PID(index), PROCESS_TID(index), g);
+                PROCESS_WAIT_STATUS(index)= PROCESS_WAIT_STATUS_DEFAULT;
+                PROCESS_WAIT_FLAG(index)  = 0;
+                PROCESS_STATE(index)      = PRS_RUN;
+                ptrace_os_continue_and_wait(PROCESS_TID(index), PROCESS_SIG(index));
+            } else {
+              /*
+               * A normal, non trap signal
+               *
+               * Report all
+               */
               if (target_thread_make_current(tid)) {
                 /* A non trap signal */
                 gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+                DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n",
+                            PROCESS_PID(index), PROCESS_TID(index),
+                            PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
                 CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
                 no_event = false;
+                PROCESS_WAIT_STATUS(index) = PROCESS_WAIT_STATUS_DEFAULT;
+                PROCESS_SIG(index) = 0;
               }
-            } else {
-              DBG_PRINT("Ignoring clone start signal pid:%d tid:%d gdb signal:%d\n",
-                          PROCESS_PID(index), PROCESS_TID(index), g);
-              PROCESS_STATE(index) = PRS_STOP;
-            }
-          } else {
-            /*
-             * A normal, non trap signal
-             *
-             * Report all
-             */
-            if (target_thread_make_current(tid)) {
-              /* A non trap signal */
-              DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n",
-                          PROCESS_PID(index), PROCESS_TID(index),
-                          PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
-              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
-              CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
-              no_event = false;
-            }
-          } /* else */
+            } /* else */
+          } /* ignore signal */
+          else
+          {
+            DBG_PRINT("tid:%d Ignoring signal s:%d\n", s);
+            PROCESS_WAIT_STATUS(index)= PROCESS_WAIT_STATUS_DEFAULT;
+            PROCESS_WAIT_FLAG(index)  = 0;
+            PROCESS_STATE(index) = PRS_RUN;
+            ptrace_os_continue_and_wait(PROCESS_TID(index), PROCESS_SIG(index));
+            ignore_signal[index] = 0;
+          }
         } /* else */
-        DBG_PRINT("pid:%d tid:%d updated state to PRS_CONT\n", PROCESS_PID(index), PROCESS_TID(index));
-        PROCESS_STATE(index) = PRS_CONT;
       } /* WIFSTOPPED */
 #ifdef WIFCONTINUED
       else if (WIFCONTINUED(wait_status)) {
         CURRENT_PROCESS_STATE = PRS_CONT;
       } /* WIFCONTINUED */
 #endif
+      /* wait flag is set process is waitng */
+      if (PROCESS_STATE(index) == PRS_START)
+        PROCESS_STATE(index) = PRS_CONT;
     } /* process waiting */
   }   /* process loop */
+}
+
+static int is_all_stopped()
+{
+  int index;
+  //PRINT_ALL_PROCESS_INFO("check");
+  for (index = 0; index < _target.number_processes; index++) {
+    int real_state = get_process_state(PROCESS_TID(index));
+    if (!PROCESS_WAIT_FLAG(index)) {
+      if (real_state == PRS_STOP)
+        PROCESS_WAIT_FLAG(index) = true;
+      else
+        return 0;
+    }
+    if (real_state != PRS_STOP) {
+      DBG_PRINT("Thread tid:%d not in stop but in state:%s\n",
+        PROCESS_TID(index),
+        STATE_STR(get_process_state(PROCESS_TID(index))));
+      return 0;
+    }
+  }
+  return 1;
 }
 
 int ptrace_wait(char *str, int step, bool skip_continue_others) {
   int ret = RET_ERR;
   if(str) str[0] = '\0'; /* clear old string */
-  PRINT_ALL_PROCESS_INFO("entry");
+  //PRINT_ALL_PROCESS_INFO("entry");
   /* Could be waiting awhile, turn on sigio */
   signal_sigio_on();
   if (step) {
-    _wait_single();
+    _wait_single(step);
     if (!_exited_single(str)) {
       /*
        * The current thread could have exited
@@ -1635,12 +1726,11 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
       /* _newthread_single(); */
     }
   } else {
-    _deliver_sig();
-    _wait_all();
+    _wait_all(step);
     if (!_exited_all(str)) {
       /*
        * The current thread could have exited
-       * This will change the currnet thread to
+       * This will change the current thread to
        * the parent thread
        */
       _stopped_all(str);
@@ -1660,35 +1750,77 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
      * Sometime the caller wants everyone to stop
      * So do not start up the non-current threads
      */
-    if (!skip_continue_others)
-      ptrace_os_continue_others();
+    //if (!skip_continue_others)
+    //  ptrace_os_continue_others();
   }
   /* Finished waiting, turn off sigio */
   signal_sigio_off();
+
+  /* make sure current process & all threads are in stopped state */
   if (CURRENT_PROCESS_WAIT_FLAG) {
-    if (strlen(str))
-      ret = RET_OK;
-    else
-      ret = RET_IGNORE;
+     if (!strlen(str)) ret = RET_IGNORE;
+     else if(is_all_stopped()) {
+        ret = RET_OK;
+     } else {
+         _deliver_sig(SIGSTOP, PRS_STOP);
+         if(is_all_stopped()) {
+            DBG_PRINT("All threads in stopped state\n");
+         } else {
+            DBG_PRINT("ERROR: All threads not in stopped state\n");
+         }
+         ret = RET_OK;
+      }
   } else {
-    /*
-     * Could be waiting in this loop for a while.
-     * Check if gdb has sent something important, like a ^C
-     * that we should respond to.
-     */
-    packet_quick_exchange ();
     ret = RET_CONTINUE_WAIT;
   }
-  PRINT_ALL_PROCESS_INFO("exit");
+  //PRINT_ALL_PROCESS_INFO("exit");
   DBG_PRINT("return:%s\n", RETURN_CODE_STR(ret));
-
   return ret;
 }
 
+#if 0
+/* As per GDB manual the very first thread ID mentioned in the
+   reply will be stopped by GDB in a subsequent message
+ */
+void ptrace_threadinfo_query(int first, char *out_buf) {
+  static int index = 0;
+  pid_t tid;
+  pid_t pid = PROCESS_PID(0);
+  //PRINT_ALL_PROCESS_INFO("Bingo");
+  //DBG_PRINT("Number of threads:%d index:%d tid:\n", _target.number_processes, index);
+  if (first) {
+    sprintf(out_buf, "mp%x.%x", pid, CURRENT_PROCESS_TID);
+  } else {
+    if (index < _target.number_processes) {
+        tid = PROCESS_TID(index);
+        if (tid != CURRENT_PROCESS_TID) {
+          sprintf(out_buf, "mp%x.%x", pid, tid);
+          index++;
+        } else {
+          index++;
+          if (index < _target.number_processes) {
+            tid = PROCESS_TID(index);
+            sprintf(out_buf, "mp%x.%x", pid, tid);
+            index++;
+          } else {
+            sprintf(out_buf, "l");
+            index = 0;
+          }
+        }
+     } else {
+        sprintf(out_buf, "l");
+        index = 0;
+     }
+  }
+}
+#endif
+
+#if 1
 void ptrace_threadinfo_query(int first, char *out_buf) {
   static int n;
   int i;
   pid_t t;
+
 
   /* Find next active thread */
   for (i = first ? 0 : n + 1; i < _target.number_processes; i++) {
@@ -1710,14 +1842,15 @@ void ptrace_threadinfo_query(int first, char *out_buf) {
     if (i < _target.number_processes) {
       t = PROCESS_TID(n);
       if (n > 0)
-	sprintf(out_buf, "mp%x.%x", p, t);
+	       sprintf(out_buf, "mp%x.%x", p, t);
       else
-	sprintf(out_buf, "mp%x.%x", p, p);
+	       sprintf(out_buf, "mp%x.%x", p, t);
     } else {
       sprintf(out_buf, "l");
     }
   }
 }
+#endif
 
 void ptrace_supported_features_query(char *out_buf) {
   char str[128];
@@ -1745,7 +1878,6 @@ void ptrace_supported_features_query(char *out_buf) {
    */
   sprintf(str, "QStartNoAckMode+;");
   strcat(out_buf, str);
-
 #if 0
 	/*
 	 * NonStop means threads can run conncurrently
