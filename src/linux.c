@@ -414,12 +414,20 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
 void ptrace_os_wait(pid_t t, int step) {
   pid_t tid;
   int status;
-
+  int index;
   //PRINT_ALL_PROCESS_INFO("entry");
+  for (index = 0; index < _target.number_processes; index++) {
+    status = PROCESS_WAIT_STATUS(index);
+    tid    = PROCESS_TID(index);
+    if (status != PROCESS_WAIT_STATUS_DEFAULT) {
+      DBG_PRINT("Earlier wait got tid:%d wait_status:%x ptrace_event:%s\n", tid, status, PTRACE_EVENT_STR(status));
+      return;
+    }
+  }
 
   /* Wait for some event from either parent or child */
   while (1) {
-    status = -1;
+    status    = -1;
     tid = ptrace_os_waitpid(t, &status);
     if (tid == 0) { /* no children in a waitable state */
       //DBG_PRINT("No children in waitable state \n");
@@ -445,8 +453,8 @@ long ptrace_os_continue_and_wait(pid_t tid, int sig)
     while(1) {
       if (get_process_state(tid) == PRS_RUN) break;
       int status = -1;
-      int tid = ptrace_os_waitpid(tid, &status);
-      if (tid == 0) { /* no children in a waitable state */
+      int wait_tid = ptrace_os_waitpid(tid, &status);
+      if (wait_tid == 0) { /* no children in a waitable state */
         //DBG_PRINT("No children in waitable state \n");
         util_usleep(1000);
         continue;
