@@ -1727,7 +1727,7 @@ static int is_all_stopped()
 int ptrace_wait(char *str, int step, bool skip_continue_others) {
   int ret = RET_ERR;
   if(str) str[0] = '\0'; /* clear old string */
-  //PRINT_ALL_PROCESS_INFO("entry");
+
   /* Could be waiting awhile, turn on sigio */
   signal_sigio_on();
   if (step) {
@@ -1773,6 +1773,7 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   /* Finished waiting, turn off sigio */
   signal_sigio_off();
 
+  PRINT_ALL_PROCESS_INFO("check");
   /* make sure current process & all threads are in stopped state */
   if (CURRENT_PROCESS_WAIT_FLAG) {
      if (!strlen(str)) ret = RET_IGNORE;
@@ -1788,6 +1789,7 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
       }
      }
   } else {
+    if (step) ret = RET_OK;
     ret = RET_CONTINUE_WAIT;
   }
   //PRINT_ALL_PROCESS_INFO("exit");
