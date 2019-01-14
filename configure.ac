@@ -54,71 +54,71 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([gethostbyname memmove memset select socket strchr strdup strtol])
 AC_CHECK_LIB(rt, timer_create)
 
-ti_src="cmdline.c main.c ptrace.c network.c gdb_interface.c target_skeleton.c watchdog.c lldb_interface.c"
+ti_src="cmdline.c main.c network.c gdb_interface.c target_skeleton.c watchdog.c lldb_interface.c"
 
 case ${target} in
 
 powerpc-*-freebsd*)
 	# powerpc freebsd
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) freebsd-ppc.$(OBJEXT) freebsd.$(OBJEXT) '
+	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-ppc.$(OBJEXT) freebsd.$(OBJEXT) '
 	;;
 
 powerpc-*-linux*)
 	# ppc 32 bit linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-ppc.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-ppc.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 i686-*-linux-*)
 	# x86 32 bit linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
 x86_64-*-linux-*)
 	# x86 64 bit linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86_64.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86_64.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
 i386-*-freebsd*)
 	# x86 freebsd
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
+	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-x86.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 amd64-*-freebsd*|x86_64-*-freebsd*)
 	# x64 freebsd
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) freebsd-x86_64.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT) x86.$(OBJEXT)'
+	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-x86_64.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
 aarch64-*-linux-*)
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-aarch64.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-aarch64.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 armel*-*-linux-*)
 	# arm 32 little endian bit linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-arm.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-arm.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 arm*-*-linux-*)
 	# arm 32 big endian bit linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-arm.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-arm.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 arm*-*-freebsd*)
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) bsd-arm.$(OBJEXT) freebsd-arm.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
+	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) bsd-arm.$(OBJEXT) freebsd-arm.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 aarch64*-*-freebsd*)
 	os=freebsd
-	TD_SRC='target_ptrace.$(OBJEXT) bsd-aarch64.$(OBJEXT) freebsd-aarch64.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
+	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) bsd-aarch64.$(OBJEXT) freebsd-aarch64.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
 	;;
 
 arm*-*-netbsd*)
@@ -135,13 +135,13 @@ x86_64-apple-darwin*)
 mipsel-*-linux-*)
 	# mips 32 bit little endian linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-mips.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-mips.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 mips-*-linux-*)
 	# mips 32 bit big endian linux
 	os=linux
-	TD_SRC='target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-mips.$(OBJEXT) linux.$(OBJEXT)'
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-mips.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
 *)

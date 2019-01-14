@@ -105,9 +105,8 @@ PROGRAMS = $(bin_PROGRAMS)
 am_deebe_OBJECTS = breakpoint.$(OBJEXT) cmdline.$(OBJEXT) \
 	gdb_interface.$(OBJEXT) elf.$(OBJEXT) lldb_interface.$(OBJEXT) \
 	memory.$(OBJEXT) main.$(OBJEXT) network.$(OBJEXT) \
-	packet.$(OBJEXT) ptrace.$(OBJEXT) signal.$(OBJEXT) \
-	target.$(OBJEXT) util.$(OBJEXT) version.$(OBJEXT) \
-	watchdog.$(OBJEXT)
+	packet.$(OBJEXT) signal.$(OBJEXT) target.$(OBJEXT) \
+	util.$(OBJEXT) version.$(OBJEXT) watchdog.$(OBJEXT)
 deebe_OBJECTS = $(am_deebe_OBJECTS)
 am__DEPENDENCIES_1 =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -279,7 +278,6 @@ deebe_SOURCES = \
 	main.c \
 	network.c \
 	packet.c \
-	ptrace.c \
 	signal.c \
 	target.c \
 	util.c \
@@ -292,12 +290,14 @@ EXTRA_deebe_SOURCES = \
 	freebsd-proc.c \
 	freebsd-thread_db.c \
 	freebsd-x86.c \
+	freebsd-ptrace.c \
 	linux.c \
 	linux-aarch64.c \
 	linux-arm.c \
 	linux-ppc.c \
 	linux-thread_db.c \
 	linux-x86.c \
+	linxu-ptrace.c \
 	osx-x86_64.c \
 	target_ptrace.c \
 	target_osx.c
@@ -395,6 +395,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/elf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-ppc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-proc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-ptrace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-thread_db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd-x86.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/freebsd.Po@am__quote@
@@ -405,13 +406,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-thread_db.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-x86.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linxu-ptrace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lldb_interface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osx-x86_64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/target.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/target_osx.Po@am__quote@

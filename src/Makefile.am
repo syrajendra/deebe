@@ -12,7 +12,6 @@ deebe_SOURCES = \
 	main.c \
 	network.c \
 	packet.c \
-	ptrace.c \
 	signal.c \
 	target.c \
 	util.c \
@@ -25,12 +24,14 @@ EXTRA_deebe_SOURCES = \
 	freebsd-proc.c \
 	freebsd-thread_db.c \
 	freebsd-x86.c \
+	freebsd-ptrace.c \
 	linux.c \
 	linux-aarch64.c \
 	linux-arm.c \
 	linux-ppc.c \
 	linux-thread_db.c \
 	linux-x86.c \
+	linxu-ptrace.c \
 	osx-x86_64.c \
 	target_ptrace.c \
 	target_osx.c
