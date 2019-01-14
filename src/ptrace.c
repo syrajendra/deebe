@@ -79,6 +79,9 @@ static bool _stop_verbose = false;
 static bool _restart_verbose = false;
 static bool _detach_verbose = false;
 
+static void _deliver_sig(int sig, int change_state);
+static int is_all_stopped();
+
 void _print_rll(struct reg_location_list *rl) {
   if (_read_reg_verbose || _write_reg_verbose) {
     int c = 0;
@@ -541,8 +544,9 @@ int ptrace_attach(pid_t process_id) {
           if (target_new_thread(process_id, tid, status, true,
                                 SIGSTOP)) {
             ptrace_arch_option_set_thread(process_id);
-            target_attached(true);
             ret = RET_OK;
+            ptrace_os_attach_threads(process_id);
+            target_attached(true);
           } else {
             DBG_PRINT("%s error allocating for new thread\n");
           }
@@ -562,28 +566,38 @@ int ptrace_attach(pid_t process_id) {
 
 static int _ptrace_detach(int gdb_sig) {
   int ret = RET_ERR;
-  pid_t pid = CURRENT_PROCESS_PID;
-  int sig;
+  pid_t tid;
+  int sig, index;
   sig = ptrace_arch_signal_from_gdb(gdb_sig);
   if (sig < 0)
     sig = 0;
-  if (pid > 0) {
-    if (0 != PTRACE(PT_DETACH, pid, 0, sig)) { /* XXX convert to pid */
+  ptrace_os_continue(CURRENT_PROCESS_PID,
+                      CURRENT_PROCESS_TID,
+                      0, 0);
+  for (index=0; index<_target.number_processes; index++) {
+    tid = PROCESS_TID(index);
+    DBG_PRINT("Waiting for tid:%d before detaching\n", tid);
+    while(1) {
+      if (get_process_state(tid) == PRS_RUN) break;
+    }
+    if (0 != PTRACE(PT_DETACH, tid, 0, sig)) { /* XXX convert to pid */
       /* Failure */
       if (_detach_verbose) {
-        DBG_PRINT("Error detaching from pid %d\n", pid);
+        DBG_PRINT("Error detaching from tid %d\n", tid);
       }
     } else {
       if (_detach_verbose) {
-        DBG_PRINT("OK detaching from pid %d\n", pid);
+        DBG_PRINT("OK detaching from tid %d\n", tid);
       }
       ret = RET_OK;
+      target_attached(false);
     }
-  }
+  } /* for loop */
   return ret;
 }
 
 int ptrace_detach() {
+  DBG_PRINT("called\n");
   int ret = _ptrace_detach(0);
   return ret;
 }
@@ -599,7 +613,9 @@ void ptrace_detach_wait() {
   } while (ret != -1 || errno != ECHILD);
 }
 
-void ptrace_close(void) {}
+void ptrace_close(void) {
+  DBG_PRINT("called\n");
+}
 
 int ptrace_connect(char *status_string, size_t status_string_len,
                    int *can_restart) {
@@ -1090,8 +1106,12 @@ int ptrace_resume_from_addr(pid_t pid, pid_t tid, int step, int gdb_sig,
 }
 
 void ptrace_quick_kill(pid_t pid, pid_t tid) {
-  kill(pid, SIGKILL); /* XXX change to pid */
-  util_usleep(1000);
+  if(!target_is_attached()) {
+    DBG_PRINT("Killing tracee\n");
+    kill(pid, SIGKILL); /* XXX change to pid */
+    util_usleep(1000);
+  }
+  DBG_PRINT("Killing tracer\n");
   exit(0);
 }
 
@@ -1104,11 +1124,14 @@ void ptrace_quick_signal(pid_t pid, pid_t tid, int gdb_sig) {
 }
 
 void ptrace_kill(pid_t pid, pid_t tid) {
-  DBG_PRINT("Killing tracee\n");
-  /* As per linux manual PTRACE_KILL is deprecated */
-  kill(PROCESS_PID(0), SIGKILL);
-  util_usleep(1000);
-  exit(0);
+  if(!target_is_attached()) {
+    DBG_PRINT("Killing tracee\n");
+    /* As per linux manual PTRACE_KILL is deprecated */
+    kill(PROCESS_PID(0), SIGKILL);
+    util_usleep(1000);
+  } else {
+    ptrace_detach();
+  }
 }
 
 int ptrace_go_waiting(int gdb_sig) { return RET_NOSUPP; }
@@ -1402,11 +1425,11 @@ static void _deliver_sig(int sig, int change_state) {
 #endif
 }
 
-void _wait_all(int step) {
-  ptrace_os_wait(-1, step);
+void _wait_all() {
+  ptrace_os_wait(-1);
 }
 
-void _wait_single(int step) { ptrace_os_wait(CURRENT_PROCESS_TID, step); }
+void _wait_single() { ptrace_os_wait(CURRENT_PROCESS_TID); }
 
 bool __exited(char *str, int index, int wait_status) {
   bool ret = false;
@@ -1731,7 +1754,7 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   /* Could be waiting awhile, turn on sigio */
   signal_sigio_on();
   if (step) {
-    _wait_single(step);
+    _wait_single();
     if (!_exited_single(str)) {
       /*
        * The current thread could have exited
@@ -1743,7 +1766,7 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
       /* _newthread_single(); */
     }
   } else {
-    _wait_all(step);
+    _wait_all();
     if (!_exited_all(str)) {
       /*
        * The current thread could have exited

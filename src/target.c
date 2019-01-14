@@ -90,7 +90,7 @@ bool target_new_thread(pid_t pid, pid_t tid, int wait_status, bool waiting,
 
   /*
     realloc() makes it hard to debug deebe.
-    Instead we have MAX process set to 1024
+    Instead we have MAX process set to 2048
   */
   if (_target.number_processes < MAX_TARGET_PROCESS) {
     index = _target.number_processes;

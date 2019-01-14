@@ -77,7 +77,7 @@ typedef struct target_process_rec {
   int stop;     /* why did we stop */
 } target_process;
 
-#define MAX_TARGET_PROCESS 1024
+#define MAX_TARGET_PROCESS 2048
 
 typedef struct target_state_rec {
   bool lldb;

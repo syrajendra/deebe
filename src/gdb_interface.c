@@ -1418,6 +1418,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
       dbg_ack_packet_received(false, NULL);
       gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
       ret = RET_OK;
+      strcpy(out_buf, " ");
     }
   }
   sprintf(str, "vCont");
@@ -2402,6 +2403,10 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
     switch (in_buf[0]) {
     case 'v':
       handle_v_command(in_buf, in_len, out_buf, gdb_interface_target);
+      if (strncmp("vKill", in_buf, 5) == 0) {
+        DBG_PRINT("Killing tracer\n");
+        exit(0);
+      }
       break;
     default:
       break;

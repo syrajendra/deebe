@@ -92,7 +92,7 @@ bool ptrace_os_check_syscall(pid_t pid, int *in_out_sig);
 bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status);
 bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid);
 bool ptrace_os_new_thread(int status);
-void ptrace_os_wait(pid_t ti, int step);
+void ptrace_os_wait(pid_t tid);
 void ptrace_os_continue_others(pid_t ctid);
 int os_thread_kill(int tid, int sig);
 long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig);
@@ -110,6 +110,7 @@ int ptrace_os_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
 int get_process_state(pid_t tid);
 pid_t ptrace_os_waitpid(pid_t t, int *status);
 long ptrace_os_continue_and_wait(pid_t tid, int sig);
+void ptrace_os_attach_threads(pid_t pid);
 
 #ifndef PT_GETREGS
 #ifndef PTRACE_GETREGS

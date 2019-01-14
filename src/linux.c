@@ -39,11 +39,120 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
+#include <dirent.h>
 #include "global.h"
 #include "dptrace.h"
 #include "breakpoint.h"
 #include "memory.h"
 #include "../os/linux.h"
+
+static long get_number_of_threads(pid_t pid)
+{
+  FILE *fd;
+  char proc_file[64];
+  int id;
+  char comm[PATH_MAX];
+  char state;
+  int ppid, pgrp, session, tty_nr, tpgid;
+  unsigned int flags;
+  unsigned long minflt, cminflt, majflt, cmajflt, utime, stime;
+  long cutime, cstime, priority, nice, num_threads = 0;
+
+  sprintf(proc_file, "/proc/%d/stat", pid);
+  fd = fopen(proc_file, "r");
+  if (fd) {
+    fscanf(fd, "%d %s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %ld",
+            &id,          // (1)  %d
+            comm,         // (2)  %s
+            &state,       // (3)  %c
+            &ppid,        // (4)  %d
+            &pgrp,        // (5)
+            &session,     // (6)
+            &tty_nr,      // (7)
+            &tpgid,       // (8)
+            &flags,       // (9)  %u
+            &minflt,      // (10) %lu
+            &cminflt,     // (11)
+            &majflt,      // (12)
+            &cmajflt,     // (13)
+            &utime,       // (14)
+            &stime,       // (15)
+            &cutime,      // (16) %ld
+            &cstime,      // (17)
+            &priority,    // (18)
+            &nice,        // (19)
+            &num_threads  // (20)
+            );
+    fclose(fd);
+  }
+  return num_threads;
+}
+
+static long read_tids(pid_t pid, long tids[MAX_TARGET_PROCESS])
+{
+  char proc_dir[64];
+  long count = 0;
+  sprintf(proc_dir, "/proc/%d/task", pid);
+  DIR *dir = opendir(proc_dir);
+  if (dir) {
+    struct dirent *dptr;
+    while (1) {
+      dptr = readdir(dir);
+      if(!dptr) break;
+      DBG_PRINT("Dir name : %s dtype: %d\n", dptr->d_name, dptr->d_type);
+      if ((strcmp(dptr->d_name, ".") != 0) && (strcmp(dptr->d_name, "..") != 0)) {
+        if (dptr->d_type == DT_DIR) {
+          tids[count] = atol(dptr->d_name);
+          DBG_PRINT("tids[%d]:%ld\n", count, tids[count]);
+          count++;
+        } /* if DT_DIR */
+      } /* if strcmp */
+    } /* while loop */
+    closedir(dir);
+  } else {
+    DBG_PRINT("ERROR: Failed to open %s\n", proc_dir);
+  }
+  return count;
+}
+
+void ptrace_os_attach_threads(pid_t pid)
+{
+  long index;
+  long num_threads = get_number_of_threads(pid);
+  DBG_PRINT("Number of threads via /proc/<pid>/stat : %d\n", num_threads);
+  long tids[MAX_TARGET_PROCESS] = {0};
+  long count_tids  = read_tids(pid, tids);
+  DBG_PRINT("Count of threads via /proc/<pid>/task : %d\n", count_tids);
+  if (count_tids == num_threads) {
+    for (index=0; index<count_tids; index++)
+    {
+      if (tids[index] != pid) {
+        pid_t tid = tids[index];
+        if (0 == PTRACE(PT_ATTACH, tid, 0, 0)) {
+          int status = -1;
+          DBG_PRINT("Waiting for tid:%d\n", tid);
+          while(1) {
+            pid_t wait_child = ptrace_os_waitpid(tid, &status);
+            if (wait_child == tid) {
+              if (WIFSTOPPED(status) && (WSTOPSIG(status) == SIGSTOP)) {
+                if (!target_new_thread(pid, tid, PROCESS_WAIT_STATUS_DEFAULT,
+                                  /* thread_status,*/ true, SIGSTOP)) {
+                  DBG_PRINT("ERROR: allocation of new thread tid:%d failed\n", tid);
+                } else {
+                  ptrace_os_option_set_thread(tid);
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  } else {
+    printf("ERROR: Failed to read threads count_tids != num_threads\n");
+    exit(1);
+  }
+}
 
 int get_process_state(pid_t tid)
 {
@@ -398,7 +507,8 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
     if(tid == -1) {
       DBG_PRINT("ERROR: parent_pid:%d Failed to run waitpid(%d) return:%d : %s\n",
                  PROCESS_PID(0), t, tid, strerror(errno));
-      perror ("waitpid");
+      printf("ERROR: waitpid(%d) failed %s\n", t, strerror(errno));
+      exit(1);
     }
   }
   /* got some signal or error */
@@ -411,7 +521,7 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
   return tid;
 }
 
-void ptrace_os_wait(pid_t t, int step) {
+void ptrace_os_wait(pid_t t) {
   pid_t tid;
   int status;
   int index;
