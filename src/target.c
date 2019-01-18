@@ -56,7 +56,7 @@ target_state _target = {
     .xml_register_reporting = false, /* default to old style reporting */
     .step = false,                   /* no single stepping here.. */
     .syscall_enter = false,
-    .flag_attached_existing_process = 0,
+    .process_attached = 0,
     .reg_size = 0,
     .freg_size = 0,
     .fxreg_size = 0,
@@ -272,13 +272,13 @@ int target_current_index() { return _target.current_process; }
 
 void target_attached(bool flag) {
   if (flag)
-    _target.flag_attached_existing_process = 1;
+    _target.process_attached = 1;
   else
-    _target.flag_attached_existing_process = 0;
+    _target.process_attached = 0;
 }
 bool target_is_attached() {
   bool ret = false;
-  if (_target.flag_attached_existing_process == 1)
+  if (_target.process_attached == 1)
     ret = true;
   return ret;
 }

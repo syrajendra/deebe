@@ -651,7 +651,7 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
 
   index = target_index(tid);
 
-  DBG_PRINT("pid:%x tid:%x index:%d\n", pid, tid, index);
+  DBG_PRINT("pid:%d tid:%d index:%d\n", pid, tid, index);
 
   if (index < 0) {
     /* Not a valid thread */
@@ -746,6 +746,8 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
       target_thread_make_current(tid);
       DBG_PRINT("already waiting %d but wait flag is not correct\n", index);
       PROCESS_WAIT_FLAG(index) = true;
+      PROCESS_STATE(index) = PRS_STOP;
+      ret = RET_OK;
     }
   }
 end:

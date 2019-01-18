@@ -88,7 +88,7 @@ typedef struct target_state_rec {
   bool xml_register_reporting;
   bool syscall_enter;
   bool step;
-  int flag_attached_existing_process;
+  int process_attached;
   size_t reg_size;
   size_t freg_size;
   size_t fxreg_size;
