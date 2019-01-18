@@ -76,6 +76,12 @@ i686-*-linux-*)
 	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
+i586-*-linux-*)
+	# x86 32 bit linux
+	os=linux
+	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
+	;;
+
 x86_64-*-linux-*)
 	# x86 64 bit linux
 	os=linux
