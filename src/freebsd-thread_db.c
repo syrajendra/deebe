@@ -43,6 +43,10 @@
 #include "target.h"
 #include "thread_db_priv.h"
 
+void cleanup_thread_db()
+{
+}
+
 int initialize_thread_db(pid_t pid, struct gdb_target_s *t)
 {
   int ret;

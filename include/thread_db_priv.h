@@ -42,6 +42,7 @@
 
 struct gdb_target_s;
 extern int initialize_thread_db(pid_t pid, struct gdb_target_s *t);
+extern void cleanup_thread_db();
 extern int thread_db_get_tls_address(int64_t thread, uint64_t lm,
 				     uint64_t offset, uintptr_t *tlsaddr);
 
@@ -50,6 +51,44 @@ struct ps_prochandle
   pid_t pid;
   struct gdb_target_s *target;
 };
+
+#ifdef __linux__
+typedef enum
+{
+  PS_OK,		/* Generic "call succeeded".  */
+  PS_ERR,		/* Generic error. */
+  PS_BADPID,	/* Bad process handle.  */
+  PS_BADLID,	/* Bad LWP identifier.  */
+  PS_BADADDR,	/* Bad address.  */
+  PS_NOSYM,		/* Could not find given symbol.  */
+  PS_NOFREGS	/* FPU register set not available for given LWP.  */
+} ps_err_e;
+
+td_err_e (*td_init_fptr) (void);
+td_err_e (*td_ta_new_fptr) (struct ps_prochandle * ps,
+		    				td_thragent_t **ta);
+td_err_e (*td_ta_map_lwp2thr_fptr) (const td_thragent_t *ta,
+			    					lwpid_t lwpid,
+			    					td_thrhandle_t *th);
+td_err_e (*td_ta_thr_iter_fptr) (const td_thragent_t *ta,
+			 					td_thr_iter_f *callback,
+			 					void *cbdata_p,
+			 					td_thr_state_e state,
+			 					int ti_pri,
+			 					sigset_t *ti_sigmask_p,
+			 					unsigned int ti_user_flags);
+td_err_e (*td_thr_get_info_fptr) (const td_thrhandle_t *th,
+			  						td_thrinfo_t *infop);
+td_err_e (*td_thr_tls_get_addr_fptr) (const td_thrhandle_t *th,
+			      						psaddr_t map_address,
+			      						size_t offset,
+			      						psaddr_t *address);
+td_err_e (*td_thr_tlsbase_fptr) (const td_thrhandle_t *th,
+			 					unsigned long int modid,
+			 					psaddr_t *base);
+const char ** (*td_symbol_list_fptr) (void);
+td_err_e (*td_ta_delete_fptr) (td_thragent_t *ta);
+#endif
 
 #endif
 #endif

@@ -648,9 +648,9 @@ void handle_detach_command(char *const in_buf, char *out_buf, gdb_target *t) {
 
   /* If we created the target process (not attached to it), wait for the
      process to finish on detach */
-  if (!target_is_attached() && t->detach_wait) {
-    t->detach_wait();
-  }
+  //if (!target_is_attached() && t->detach_wait) {
+  //  t->detach_wait();
+  //}
 
   /* Exit now or we will appear to be wedged */
   exit(0);
@@ -827,6 +827,7 @@ int symbol_lookup(const char *name, uintptr_t *addr)
   /* Construct qSymbol request to gdb. */
   sprintf(out_buf, "qSymbol:");
   util_encode_string(name, out_buf + 8, strlen(name) * 2 + 1);
+  DBG_PRINT("%s\n", out_buf);
   if (!network_put_dbg_packet(out_buf, 0))
     return ret;
 
@@ -976,6 +977,14 @@ static bool gdb_handle_query_command(char *const in_buf, size_t in_len, char *ou
       uint64_t lm;
       uintptr_t tlsaddr;
       char *cp = &in_buf[12];
+      if (*cp == 'p') {
+        /* On linux we get packet like below
+           qGetTLSAddr:p630f.630f,0,7ffff7ffe2c8
+        */
+        if (strrchr(cp, '.'))
+          while (*cp != '.') cp++;
+        cp++;
+      }
       if (!util_decode_int64(&cp, &thread_id, ',')) {
         gdb_interface_write_retval(RET_ERR, out_buf);
         req_handled = true;
@@ -1416,6 +1425,9 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
   if (strncmp(str, n, strlen(str)) == 0) {
     if (gdb_interface_target->kill) {
       dbg_ack_packet_received(false, NULL);
+#ifdef HAVE_THREAD_DB_H
+      cleanup_thread_db();
+#endif
       gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
       ret = RET_OK;
       strcpy(out_buf, " ");

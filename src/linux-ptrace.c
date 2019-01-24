@@ -577,9 +577,6 @@ static int _ptrace_detach(int gdb_sig) {
   for (index=0; index<_target.number_processes; index++) {
     tid = PROCESS_TID(index);
     DBG_PRINT("Waiting for tid:%d before detaching\n", tid);
-    while(1) {
-      if (get_process_state(tid) == PRS_RUN) break;
-    }
     if (0 != PTRACE(PT_DETACH, tid, 0, sig)) { /* XXX convert to pid */
       /* Failure */
       if (_detach_verbose) {
