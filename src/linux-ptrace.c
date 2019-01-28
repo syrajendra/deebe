@@ -1430,6 +1430,7 @@ void _wait_single() { ptrace_os_wait(CURRENT_PROCESS_TID); }
 
 bool __exited(char *str, int index, int wait_status) {
   bool ret = false;
+  DBG_PRINT("tid:%d wait_status: %d\n", PROCESS_TID(index), wait_status);
   if (WIFEXITED(wait_status) || WIFSIGNALED(wait_status)) {
     if (index == 0) {
       if (WIFEXITED(wait_status)) {
@@ -1468,8 +1469,9 @@ bool __exited(char *str, int index, int wait_status) {
        * A thread has exited, set it's alive state to false
        * and switch to the parent process
        */
-      PROCESS_STATE(index) = PRS_EXIT;
-      PROCESS_WAIT_FLAG(index) = false;
+      PROCESS_STATE(index)        = PRS_EXIT;
+      PROCESS_WAIT_FLAG(index)    = false;
+      PROCESS_WAIT_STATUS(index)  = PROCESS_WAIT_STATUS_DEFAULT;
       /* Need to find a replacement for current thread, use the parent */
       if (index == target_current_index())
         _target.current_process = 0;
