@@ -354,6 +354,8 @@ int thread_db_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
     td_err = td_thr_tls_get_addr_fptr(th, (psaddr_t)lm, (size_t)offset, &addr);
   } else {
     td_err = td_thr_tlsbase_fptr(th, 1, &addr);
+    /* add offset for static executables */
+    addr   = offset + (char *)addr;
   }
 
   if (td_err != TD_OK) {
