@@ -587,10 +587,11 @@ void ptrace_os_continue_others(pid_t ctid) {
     for (index = 0; index < _target.number_processes; index++) {
       pid_t tid = PROCESS_TID(index);
       bool wait = PROCESS_WAIT_FLAG(index);
-
-      DBG_PRINT("tid:%d cont_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
-      				tid, ctid, wait,
-      				PROCESS_STATE_STR(index), PROCESS_SIG(index));
+      /* Add sleep here so that for large number of threads deebe gets Ctrl+C from debugger */
+      util_usleep(100);
+      //DBG_PRINT("tid:%d cont_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
+      //				tid, ctid, wait,
+      //				PROCESS_STATE_STR(index), PROCESS_SIG(index));
       if (!wait || (tid == ctid)) {
         continue;
       } else {

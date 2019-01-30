@@ -1795,11 +1795,14 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   /* Finished waiting, turn off sigio */
   signal_sigio_off();
 
-  PRINT_ALL_PROCESS_INFO("check");
+  //PRINT_ALL_PROCESS_INFO("check");
   /* make sure current process & all threads are in stopped state */
   if (CURRENT_PROCESS_WAIT_FLAG) {
-     if (!strlen(str)) ret = RET_IGNORE;
-     else {
+    if (!strlen(str)) {
+      ret = RET_IGNORE;
+      /* Add sleep here so that deebe accepts Ctrl+C from debugger */
+      util_usleep(100);
+    } else {
       DBG_PRINT("Waiting for all threads to stop/exit\n");
       while(1) {
         if(is_all_stopped()) {
@@ -1808,11 +1811,15 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
           break;
         }
         _deliver_sig(SIGSTOP, PRS_STOP);
+        /* Add sleep here so that deebe accepts Ctrl+C from debugger */
+        util_usleep(100);
       }
-     }
+    }
   } else {
     if (step) ret = RET_OK;
     ret = RET_CONTINUE_WAIT;
+    /* Add sleep here so that deebe accepts Ctrl+C from debugger */
+    util_usleep(100);
   }
   //PRINT_ALL_PROCESS_INFO("exit");
   DBG_PRINT("return:%s\n", RETURN_CODE_STR(ret));
