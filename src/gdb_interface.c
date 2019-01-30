@@ -92,6 +92,7 @@ extern char *in_buf_quick;
 #ifndef DEEBE_RELEASE
 static bool _gdb_interface_verbose = true;
 #endif
+static bool tracer_exit = false;
 /* Decode/encode functions */
 
 static int gdb_decode_reg_assignment(char *in, unsigned int *reg_no,
@@ -1094,11 +1095,30 @@ static bool gdb_handle_query_command(char *const in_buf, size_t in_len, char *ou
   } break;
   case 'R':
     if (strncmp(n, "Rcmd,", 5) == 0) {
-      /* Remote command */
-      status = RET_NOSUPP;
-      gdb_interface_write_retval(status, out_buf);
-      req_handled = true;
-      goto end;
+      uint8_t tmp[5];
+      int i;
+      n += 5;
+      for (i=0; i<4; i++, n+=2)
+        util_decode_byte(n, &tmp[i]);
+      tmp[i] = '\0';
+      if (strncmp((char *)tmp, "exit", 4) == 0) {
+        if (gdb_interface_target->kill) {
+#ifdef HAVE_THREAD_DB_H
+          cleanup_thread_db();
+#endif
+          gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
+          req_handled = true;
+          sprintf(out_buf, "%s", "OK");
+          tracer_exit = true;
+          goto end;
+        }
+      } else {
+        /* Remote command */
+        status = RET_NOSUPP;
+        gdb_interface_write_retval(status, out_buf);
+        req_handled = true;
+        goto end;
+      }
     }
     break;
   case 'S':
@@ -2341,7 +2361,7 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
     if (strncmp(in_buf, "qXfer", 5) == 0) {
       if (gdb_handle_qxfer_command(in_buf, out_buf, &binary_cmd,
 				   gdb_interface_target))
-	ret = 0;
+	      ret = 0;
     } else {
       if (!lldb_handle_query_command(in_buf, out_buf,
 				     gdb_interface_target) &&
@@ -2352,6 +2372,10 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
 	/* Supported */
 	ret = 0;
       }
+    }
+    if (tracer_exit) {
+      DBG_PRINT("Killing tracer\n");
+      exit(0);
     }
     break;
 
@@ -2480,7 +2504,7 @@ int gdb_quick_packet_handle (char* in_buf)
 
   default:
     /* Ignore */
-    DBG_PRINT("quick packet : ignoring [%s] \n", in_buf);
+    DBG_PRINT("quick packet default : ignoring [%s] \n", in_buf);
     break;
   }
   return ret;
