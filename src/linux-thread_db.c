@@ -48,9 +48,9 @@
 #include <sys/ptrace.h>
 #include <linux/elf.h>
 #include <sys/stat.h>
+#include <asm/ptrace-abi.h>
 
 #ifdef __x86_64__
-#include <asm/ptrace-abi.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/reg.h>
@@ -351,7 +351,11 @@ int thread_db_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
 
   DBG_PRINT("lm:%ld offset:%ld\n", lm, offset);
   if (lm != 0) {
+#ifdef __x86_64__
     td_err = td_thr_tls_get_addr_fptr(th, (psaddr_t)lm, (size_t)offset, &addr);
+#else
+    td_err = td_thr_tls_get_addr_fptr(th, (psaddr_t)((uint32_t)lm), (size_t)offset, &addr);
+#endif
   } else {
     td_err = td_thr_tlsbase_fptr(th, 1, &addr);
     /* add offset for static executables */
@@ -409,7 +413,7 @@ ps_err_e ps_pdwrite (struct ps_prochandle *ph,
               size_t buf_size)
 {
   DBG_PRINT("Called\n");
-  if (ph->target->write_mem(ph->pid, (uint64_t) addr,
+  if (ph->target->write_mem(ph->pid, (uintptr_t)addr,
                 (uint8_t*) buf, buf_size) == RET_ERR) {
       return PS_ERR;
     }
@@ -422,7 +426,7 @@ ps_err_e ps_pdread (struct ps_prochandle *ph,
             size_t buf_size)
 {
   size_t read_size;
-  if (ph->target->read_mem(ph->pid, (uint64_t) addr,
+  if (ph->target->read_mem(ph->pid, (uintptr_t)addr,
                 (uint8_t*) buf, buf_size, &read_size) == RET_ERR) {
     DBG_PRINT("addr: 0x%llx failed\n", addr);
     return PS_ERR;
