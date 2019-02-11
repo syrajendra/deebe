@@ -63,7 +63,7 @@
 #include "target.h"
 #include "util.h"
 
-static bool _read_reg_verbose = true;
+static bool _read_reg_verbose = false;
 static bool _resume_current_verbose = false;
 static bool _resume_from_addr_verbose = false;
 #ifdef PT_SYSCALL

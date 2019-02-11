@@ -67,7 +67,8 @@
     "/usr/lib64/libthread_db.so", \
     "/lib64/libthread_db.so", \
     "/lib/x86_64-linux-gnu/libthread_db.so", \
-    "/usr/lib/libthread_db.so" \
+    "/usr/lib/libthread_db.so", \
+    "/lib/x86_64-linux-gnu/libthread_db.so.1"
   };
 #else
   char *lib_thread_db_paths[] = \
@@ -301,8 +302,6 @@ int initialize_thread_db(pid_t pid, struct gdb_target_s *t)
             lib_thread_db_paths[i]);
     } else {
       path = lib_thread_db_paths[i];
-      DBG_PRINT("Success using host libthread_db library %s\n", path);
-      printf("Using host libthread_db library %s\n", path);
       break;
     }
   }
@@ -338,6 +337,8 @@ int initialize_thread_db(pid_t pid, struct gdb_target_s *t)
     return ret;
   }
   find_threadb_symbols();
+  DBG_PRINT("Success using host libthread_db library %s\n", path);
+  printf("Using host libthread_db library %s\n", path);
   return RET_OK;
 }
 
