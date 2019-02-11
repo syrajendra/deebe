@@ -49,6 +49,8 @@
 #include <linux/elf.h>
 #include <sys/stat.h>
 #include <asm/ptrace-abi.h>
+#include <errno.h>
+#include <../os/linux.h>
 
 #ifdef __x86_64__
 #include <asm/prctl.h>
@@ -62,18 +64,24 @@
 #ifdef __x86_64__
   char *lib_thread_db_paths[] = \
   { \
-    "/usr/lib/libthread_db.so", \
-    "/lib/x86_64-linux-gnu/libthread_db.so.1" \
+    "/usr/lib64/libthread_db.so", \
+    "/lib64/libthread_db.so", \
+    "/lib/x86_64-linux-gnu/libthread_db.so", \
+    "/usr/lib/libthread_db.so" \
   };
 #else
   char *lib_thread_db_paths[] = \
   { \
+    "/usr/lib32/libthread_db.so", \
+    "/lib32/libthread_db.so", \
+    "/lib/i386-linux-gnu/libthread_db.so", \
     "/usr/lib/libthread_db.so", \
-    "/lib/i386-linux-gnu/libthread_db.so.1" \
+    "/lib/libthread_db.so", \
   };
 #endif
 static void *lib_handle;
 static unsigned int lib_thread_db_count = sizeof(lib_thread_db_paths)/sizeof(lib_thread_db_paths[0]);
+static bool fetching_tls_info = false;
 
 /* store symbol & its address in below LL */
 typedef struct tdb_symbols {
@@ -325,7 +333,7 @@ int initialize_thread_db(pid_t pid, struct gdb_target_s *t)
   /* create a new connection */
   td_err = td_ta_new_fptr(&_target.ph, &_target.thread_agent);
   if (td_err != TD_OK) {
-    DBG_PRINT("ERROR: Failed to create new connection to thread db %s\n",
+    DBG_PRINT("ERROR: Failed to create new connection to thread db : %s\n",
                 th_db_error_code_str(td_err));
     return ret;
   }
@@ -339,13 +347,14 @@ int thread_db_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
   td_err_e td_err;
   td_thrhandle_t *th;
   psaddr_t addr = 0;
-
+  fetching_tls_info = true;
   /* search new threads first */
   find_thread_info();
 
   th = get_thread_info(thread);
   if (!th) {
     DBG_PRINT("Failed to get thread info of tid:%d\n", thread);
+    fetching_tls_info = false;
     return RET_ERR;
   }
 
@@ -365,10 +374,12 @@ int thread_db_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
   if (td_err != TD_OK) {
     DBG_PRINT("ERROR: Failed td_thr_tls_get_addr/td_thr_tlsbase %s\n",
                 th_db_error_code_str(td_err));
+    fetching_tls_info = false;
     return RET_ERR;
   }
   *tlsaddr = (uintptr_t) addr;
   DBG_PRINT("tlsaddr: 0x%x\n", addr);
+  fetching_tls_info = false;
   return RET_OK;
 }
 
@@ -446,11 +457,16 @@ ps_err_e ps_pglobal_lookup (struct ps_prochandle *ph,
 {
   uintptr_t laddr, gaddr;
   if (search_symbol(sym_name, &laddr) == RET_ERR) {
-    if (symbol_lookup(sym_name, &gaddr) == RET_ERR) {
-      DBG_PRINT("ERROR: Symbol %s lookup failed\n", sym_name);
-      return PS_NOSYM;
+    if (!fetching_tls_info) {
+      if (symbol_lookup(sym_name, &gaddr) == RET_ERR) {
+        DBG_PRINT("ERROR: Symbol %s lookup failed\n", sym_name);
+        return PS_NOSYM;
+      } else {
+        *sym_addr = (psaddr_t) gaddr;
+      }
     } else {
-      *sym_addr = (psaddr_t) gaddr;
+      DBG_PRINT("ERROR: Inside fetching TLS Info symbol %s lookup failed\n", sym_name);
+      return PS_NOSYM;
     }
   } else {
     *sym_addr = (psaddr_t) laddr;
@@ -470,7 +486,9 @@ ps_err_e ps_lgetregs (struct ps_prochandle *ph,
               lwpid_t lwpid, prgregset_t gregset)
 {
   DBG_PRINT("Called\n");
-  return PS_ERR;
+  //ptrace_linux_getset(PTRACE_GETREGS, lwpid, 0, &gregset);
+  *gregset = 0;
+  return PS_OK;
 }
 
 pid_t ps_getpid (struct ps_prochandle *ph)
@@ -536,7 +554,8 @@ ps_get_thread_area (struct ps_prochandle *ph,
                       lwpid_t lwpid, int reg, void **base)
 {
   DBG_PRINT("Called reg : %d\n", reg);
-  #ifdef __x86_64__
+#ifdef __x86_64__
+    DBG_PRINT("ptrace x86_64 PTRACE_ARCH_PRCTL \n");
     if (reg == FS) {
         if (0 == ptrace (PTRACE_ARCH_PRCTL, lwpid, base, ARCH_GET_FS))
           return PS_OK;
@@ -546,19 +565,25 @@ ps_get_thread_area (struct ps_prochandle *ph,
     } else {
         return PS_BADADDR;
     }
-  #else
+#else
+    DBG_PRINT("ptrace i386 PTRACE_GET_THREAD_AREA \n");
     {
+      reg = 12;
       unsigned int data[4];
-
+      char str[128];
       if (ptrace (PTRACE_GET_THREAD_AREA, lwpid,
-            (void *) (intptr_t) reg,
-            (unsigned long) &data) < 0)
+            (void *) (intptr_t)reg,
+            (unsigned long) &data) < 0) {
+        memset(&str[0], 0, 128);
+        strerror_r(errno, &str[0], 128);
+        DBG_PRINT("ERROR: Failed to ptrace PTRACE_GET_THREAD_AREA : %s\n", str);
         return PS_ERR;
-
-      *base = (void *) (uintptr_t) data[1];
-      return PS_OK;
     }
-  #endif
+    DBG_PRINT("ptrace PTRACE_GET_THREAD_AREA 0x%x \n", data[1]);
+    (*base) = (void *) (uintptr_t) data[1];
+    return PS_OK;
+  }
+#endif
   return PS_ERR;
 }
 

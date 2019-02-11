@@ -63,7 +63,7 @@
 #include "target.h"
 #include "util.h"
 
-static bool _read_reg_verbose = false;
+static bool _read_reg_verbose = true;
 static bool _resume_current_verbose = false;
 static bool _resume_from_addr_verbose = false;
 #ifdef PT_SYSCALL
@@ -158,7 +158,7 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
 #ifndef DEEBE_RELEASE
       int j;
       if (_read_reg_verbose) {
-        printf("Reg:%d Name:%s Size:%zd ", i, grll[i].name, grll[i].size);
+        printf("Reg:%d Name:%s Size:%zd Data:", i, grll[i].name, grll[i].size);
         for (j=grll[i].size-1; j>=0; j--)
           printf("%02X ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
         printf("\n");
@@ -1397,7 +1397,7 @@ static void _deliver_sig(int sig, int change_state) {
             /* wait for the signal to takes affect */
             wait_status = -1;
 		    		wait_tid = ptrace_os_waitpid(tid, &wait_status);
-		    		if ((tid == wait_tid)) {
+		    		if (tid == wait_tid) {
                 if ((WSTOPSIG(wait_status) == sig)) {
                   PROCESS_WAIT_STATUS(index)  = PROCESS_WAIT_STATUS_DEFAULT;
                   DBG_PRINT("tid:%d reported sig stop\n", wait_tid);
@@ -2086,9 +2086,8 @@ void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname,
     DBG_PRINT("Failed for request %d (%s) pid : %d perrno: %d\n",
                 request, reqstr, pid, perrno);
     memset(&str[0], 0, 128);
-    if (0 == strerror_r(perrno, &str[0], 128)) {
-      DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
-    }
+    strerror_r(perrno, &str[0], 128);
+    DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
   } else {
     if (request != 3) {
       DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n",
