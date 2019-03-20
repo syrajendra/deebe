@@ -58,7 +58,7 @@ int ptrace_arch_signal_from_gdb(int gdb) { return host_signal_from_gdb(gdb); }
 bool x86_read_debug_reg(pid_t tid, size_t reg, void *val) {
   bool ret = false;
   if (reg < 8) {
-    _read_dbreg(tid);
+    _read_single_dbreg(tid, reg);
     size_t addr = reg * sizeof(udr_type_t);
     if (addr + sizeof(udr_type_t) <= _target.dbreg_size) {
       memcpy(val, _target.dbreg + addr, sizeof(udr_type_t));
@@ -71,12 +71,15 @@ bool x86_read_debug_reg(pid_t tid, size_t reg, void *val) {
 bool x86_write_debug_reg(pid_t tid, size_t reg, void *val) {
   bool ret = false;
   if (reg < 8) {
-    _read_dbreg(tid);
+    _read_single_dbreg(tid, reg);
     unsigned long addr = reg * sizeof(udr_type_t);
     if (addr + sizeof(udr_type_t) <= _target.dbreg_size) {
-      memcpy(_target.dbreg + addr, val, sizeof(udr_type_t));
-      _write_dbreg(tid);
-      ret = true;
+      if (_write_single_dbreg(tid, reg, val)){
+        memcpy(_target.dbreg + addr, val, sizeof(udr_type_t));
+        ret = true;
+      } else {
+        DBG_PRINT("ERROR : Writing addr %lu to debug-register:%d failed for tid :%d", (unsigned long *)val, reg, tid);
+      }
     }
   }
   return ret;
@@ -116,3 +119,38 @@ void ptrace_arch_write_dbreg(pid_t tid) {
     }
   }
 }
+
+bool ptrace_arch_read_single_dbreg(pid_t tid, size_t reg) {
+  bool ret = false;
+  _target.dbreg_size = 8 * sizeof(udr_type_t);
+  if (NULL == _target.dbreg)
+    _target.dbreg = calloc(8, sizeof(udr_type_t));
+
+  if (NULL != _target.dbreg) {
+    long v;
+    udr_type_t *val = (udr_type_t *)_target.dbreg;
+    unsigned long addr = offsetof(struct user, u_debugreg[reg]);
+    errno = 0;
+    v = PTRACE(PTRACE_PEEKUSER, tid, addr, 0);
+    if (0 == errno){
+      memcpy(&val[reg], &v, sizeof(udr_type_t));
+      ret = true;
+    } else {
+      ret = false;
+    }
+  }
+  return ret;
+}
+
+bool ptrace_arch_write_single_dbreg(pid_t tid, size_t reg, void *val) {
+  bool ret = false;
+  if (NULL != _target.dbreg) {
+    unsigned long addr = offsetof(struct user, u_debugreg[reg]);
+    if (0 != PTRACE(PTRACE_POKEUSER, tid, addr, *(udr_type_t*)val))
+      ret = false;
+    else 
+      ret = true;
+  }
+  return ret;
+}
+

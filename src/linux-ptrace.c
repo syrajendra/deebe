@@ -471,6 +471,14 @@ bool _read_dbreg(pid_t tid) {
   return ret;
 }
 
+bool _read_single_dbreg(pid_t tid, size_t reg){
+  bool ret = false;
+  ret = ptrace_arch_read_single_dbreg(tid, reg);
+  if (_target.dbreg_size > 0)
+    ret = true;
+  return ret;
+}
+
 void _write_greg(pid_t tid) {
 #ifdef PT_SETREGS
   _write_reg(tid, PT_SETREGS, _target.reg);
@@ -489,6 +497,10 @@ void _write_dbreg(pid_t tid) {
 #else
   ptrace_arch_write_dbreg(tid);
 #endif
+}
+
+bool _write_single_dbreg(pid_t tid, size_t reg, void *val){
+  return ptrace_arch_write_single_dbreg(tid, reg, val);
 }
 
 void ptrace_help(/*@unused@*/ char *prog_name) {}

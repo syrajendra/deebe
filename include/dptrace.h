@@ -62,6 +62,8 @@ void _write_greg(pid_t tid);
 void _print_rll(struct reg_location_list *rl);
 bool _read_dbreg(pid_t tid);
 void _write_dbreg(pid_t tid);
+bool _read_single_dbreg(pid_t tid, size_t reg);
+bool _write_single_dbreg(pid_t tid, size_t reg, void *val);
 
 /*
  * Defined in the ARCH
@@ -100,6 +102,8 @@ void ptrace_arch_read_fxreg(pid_t tid);
 void ptrace_arch_write_fxreg(pid_t tid);
 void ptrace_arch_read_dbreg(pid_t tid);
 void ptrace_arch_write_dbreg(pid_t tid);
+bool ptrace_arch_read_single_dbreg(pid_t tid, size_t reg);
+bool ptrace_arch_write_single_dbreg(pid_t tid, size_t reg, void *val);
 void ptrace_arch_option_set_syscall(pid_t pid);
 void ptrace_arch_option_set_thread(pid_t pid);
 void ptrace_arch_get_syscall(pid_t tid, void *id, void *arg1, void *arg2,
