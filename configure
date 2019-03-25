@@ -6064,7 +6064,7 @@ powerpc-*-linux*)
 	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-ppc.$(OBJEXT) linux.$(OBJEXT)'
 	;;
 
-i686-*-linux-*)
+i686-*-linux-*|i386-*-linux-*)
 	# x86 32 bit linux
 	os=linux
 	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
