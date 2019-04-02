@@ -92,28 +92,33 @@ bool target_new_thread(pid_t pid, pid_t tid, int wait_status, bool waiting,
     realloc() makes it hard to debug deebe.
     Instead we have MAX process set to 2048
   */
-  if (_target.number_processes < MAX_TARGET_PROCESS) {
-    index = _target.number_processes;
-    _target.number_processes++;
+
+  if (-1 == target_index(tid)) {
+    if (_target.number_processes < MAX_TARGET_PROCESS) {
+      index = _target.number_processes;
+      _target.number_processes++;
+    } else {
+      printf("Failed to allocate memory for %zd number of processes\n", _target.number_processes);
+      exit(1);
+    }
+
+    PROCESS_PID(index) = pid;
+    PROCESS_TID(index) = tid;
+    PROCESS_STATE(index) = PRS_START;
+    PROCESS_WAIT_STATUS(index) = wait_status;
+    PROCESS_WAIT_FLAG(index) = waiting;
+    /*
+      SIGSTOP pending signal is not passed because it will cause stop at clone call
+      Hence disabling it by passing ZERO.
+    */
+    PROCESS_SIG(index) = 0;
+    PROCESS_STOP(index) = LLDB_STOP_REASON_SIGNAL;
+    ret = true;
+    DBG_PRINT("pid:%d tid:%d index:%d return:%d\n", pid, tid, index, ret);
   } else {
-    printf("Failed to allocate memory for %zd number of processes\n", _target.number_processes);
-    exit(1);
+    // target tid is already captured
+    ret = true;
   }
-
-  PROCESS_PID(index) = pid;
-  PROCESS_TID(index) = tid;
-  PROCESS_STATE(index) = PRS_START;
-  PROCESS_WAIT_STATUS(index) = wait_status;
-  PROCESS_WAIT_FLAG(index) = waiting;
-  /*
-    SIGSTOP pending signal is not passed because it will cause stop at clone call
-    Hence disabling it by passing ZERO.
-  */
-  PROCESS_SIG(index) = 0;
-  PROCESS_STOP(index) = LLDB_STOP_REASON_SIGNAL;
-  ret = true;
-
-  DBG_PRINT("pid:%d tid:%d index:%d return:%d\n", pid, tid, index, ret);
   return ret;
 }
 

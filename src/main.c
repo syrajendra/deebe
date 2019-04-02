@@ -183,9 +183,22 @@ int main_debug() {
   return ret;
 }
 
+void exit_cleanup()
+{
+  buffer_cleanup();
+#ifdef __linux__
+  thread_db_cleanup();
+  ptrace_cleanup();
+  symbol_cleanup();
+#endif
+  network_cleanup();
+  cmdline_cleanup();
+}
+
 int main(int argc, char *argv[]) {
   int ret = -1;
 
+  atexit(exit_cleanup);
 #ifndef DEEBE_RELEASE
   fp_log = fopen(LOG_FILENAME, "w");
 #endif

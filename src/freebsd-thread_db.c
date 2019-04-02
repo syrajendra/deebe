@@ -43,7 +43,7 @@
 #include "target.h"
 #include "thread_db_priv.h"
 
-void cleanup_thread_db()
+void thread_db_cleanup()
 {
 }
 

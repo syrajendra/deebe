@@ -154,3 +154,15 @@ bool ptrace_arch_write_single_dbreg(pid_t tid, size_t reg, void *val) {
   return ret;
 }
 
+void ptrace_cleanup()
+{
+  if (_target.dbreg)    free(_target.dbreg);
+  if (_target.reg)      free(_target.reg);
+  if (_target.freg)     free(_target.freg);
+  if (_target.fxreg)    free(_target.fxreg);
+  if (_target.reg_rw)   free(_target.reg_rw);
+  if (_target.freg_rw)  free(_target.freg_rw);
+  if (_target.fxreg_rw) free(_target.fxreg_rw);
+  if (_target.dbreg_rw) free(_target.dbreg_rw);
+  if (_target.bpl)      free(_target.bpl);
+}

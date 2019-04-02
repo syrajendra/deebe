@@ -93,6 +93,13 @@ extern int host_signal_to_gdb(int sig);
 extern int host_signal_from_gdb(int gdb);
 
 extern int gPipeStdout[2];
+
+
+extern void symbol_cleanup();
+extern void ptrace_cleanup();
+extern void buffer_cleanup();
+extern void thread_db_cleanup();
+
 #else
 
 /* cmdline */
@@ -135,6 +142,12 @@ bool gDebugeeRunning = true;
 int gPipeStdout[2] = {
     -1, -1,
 };
+
+
+void symbol_cleanup();
+void ptrace_cleanup();
+void buffer_cleanup();
+void thread_db_cleanup();
 
 #endif /* DECL_GLOBAL */
 #endif /* DEEBE_GLOBAL_H */

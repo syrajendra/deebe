@@ -147,6 +147,21 @@ bool initialize_thread_db_funcs(void *handle)
   return false;
 }
 
+void symbol_cleanup()
+{
+  if (t_symbols) {
+    tdb_symbols_t *temp;
+    tdb_symbols_t *ptr = t_symbols;
+    while (ptr) {
+      if (ptr->name) free(ptr->name);
+      temp = ptr;
+      ptr = ptr->next;
+      free(temp);
+    }
+    t_symbols = NULL;
+  }
+}
+
 int search_symbol(const char *name, uintptr_t *addr)
 {
   tdb_symbols_t *ptr = t_symbols;
@@ -278,11 +293,17 @@ int find_thread_info()
   return RET_OK;
 }
 
-void cleanup_thread_db()
+void thread_db_cleanup()
 {
   DBG_PRINT("Called\n");
-  td_ta_delete_fptr(_target.thread_agent);
-  if (lib_handle) dlclose(lib_handle);
+  if (_target.thread_agent) {
+    td_ta_delete_fptr(_target.thread_agent);
+    _target.thread_agent = NULL;
+  }
+  if (lib_handle) {
+    dlclose(lib_handle);
+    lib_handle = NULL;
+  }
 }
 
 int initialize_thread_db(pid_t pid, struct gdb_target_s *t)

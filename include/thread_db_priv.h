@@ -42,7 +42,6 @@
 
 struct gdb_target_s;
 extern int initialize_thread_db(pid_t pid, struct gdb_target_s *t);
-extern void cleanup_thread_db();
 extern int thread_db_get_tls_address(int64_t thread, uint64_t lm,
 				     uint64_t offset, uintptr_t *tlsaddr);
 

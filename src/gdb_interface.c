@@ -110,6 +110,13 @@ static int rp_decode_8bytes(const char *in, uint64_t *val);
 
 static int extended_protocol;
 
+void buffer_cleanup()
+{
+  if (in_buf)       free(in_buf);
+  if (out_buf)      free(out_buf);
+  if (in_buf_quick) free(in_buf_quick);
+}
+
 void handle_search_memory_command(char *in_buf, char *out_buf, gdb_target *t) {
   uint64_t addr;
   uint32_t pattern;
@@ -1104,7 +1111,7 @@ static bool gdb_handle_query_command(char *const in_buf, size_t in_len, char *ou
       if (strncmp((char *)tmp, "exit", 4) == 0) {
         if (gdb_interface_target->kill) {
 #ifdef HAVE_THREAD_DB_H
-          cleanup_thread_db();
+          thread_db_cleanup();
 #endif
           gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
           req_handled = true;
@@ -1446,7 +1453,7 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
     if (gdb_interface_target->kill) {
       dbg_ack_packet_received(false, NULL);
 #ifdef HAVE_THREAD_DB_H
-      cleanup_thread_db();
+      thread_db_cleanup();
 #endif
       gdb_interface_target->kill(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID);
       ret = RET_OK;
