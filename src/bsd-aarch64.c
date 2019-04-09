@@ -131,7 +131,7 @@ struct reg_location_list fxrll[] = {
 /* AArch64 BRK software debug mode instruction.
 Note that AArch64 code is always little-endian.
 1101.0100.0010.0000.0000.0000.0000.0000 = 0xd4200000.  */
-static unsigned long bkpt[1] = {0x000020d4};
+static unsigned long bkpt[1] = {0xd4200000};
 
 size_t ptrace_arch_swbreak_size() { return 4; }
 
