@@ -443,6 +443,50 @@ void ptrace_siginfo(pid_t tid, siginfo_t *si) {
   }
 }
 
+/* For debug purpose only
+void print_tid_status(pid_t tid, int status)
+{
+  if (tid > 0 && status != -1 && status != 0) {
+    char *msg = "";
+    if (PROCESS_PID(0) == tid) {
+      msg = " <-- Main Thread";
+    }
+    if (WIFEXITED(status)) {
+      printf("TID %d exited %s\n", tid, msg);
+    } else if (WIFSIGNALED(status)) {
+      int s = WTERMSIG(status);
+      if (s != SIGINT) {
+        printf("TID %d killed by signal %d %s\n", tid, s, msg);
+      } else {
+        printf("TID %d got signal %d %s\n", tid, s, msg);
+      }
+    } else if (WIFSTOPPED(status)) {
+      int s = WSTOPSIG(status);
+      if (s == SIGTRAP) {
+        char *pmsg = "reason UNKNOWN ";
+        if ((PROCESS_PID(0) == tid)) {
+            if ( ((status)>>8) == (SIGTRAP | (PTRACE_EVENT_CLONE<<8)) ) {
+              pmsg = "reason CLONE ";
+            } else {
+              pmsg = "reason breakpoint ";
+            }
+        } else {
+          pmsg = "reason breakpoint ";
+        }
+        printf("TID %d stopped by signal %d SIGTRAP %s%s\n", tid, s, pmsg, msg);
+      } else if (s == SIGSTOP) {
+        char *cmsg = "";
+        if (target_index(tid) < 0) {
+          cmsg = "reason NEW_THREAD ";
+        }
+        printf("TID %d stopped by signal %d SIGSTOP %s%s\n", tid, s, cmsg, msg);
+      }
+    } else {
+      printf("TID %d status unknown %s\n", tid, msg);
+    }
+  }
+}
+*/
 
 pid_t ptrace_os_waitpid(pid_t t, int *status)
 {
@@ -452,6 +496,8 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
   tid = waitpid(t, status, WNOHANG | __WALL);
   if ((tid > 0) && (*status != -1)) {
     DBG_PRINT("waitpid(%d) returned tid:%d waitstatus:0x%x\n", t, tid, *status);
+
+    //print_tid_status(tid, *status);
 
     index = target_index(tid);
     if (index >= 0) {
@@ -488,10 +534,10 @@ pid_t ptrace_os_waitpid(pid_t t, int *status)
             DBG_PRINT("Got SIGTRAP tid:%d\n", tid);
           }
         } else if(sig == SIGSTOP) {
-          DBG_PRINT("Got SIGSTOP\n");
+          DBG_PRINT("Got SIGSTOP tid:%d\n", tid);
         }
       } else {
-        DBG_PRINT("ERROR: Not handling this case\n");
+        printf("ERROR: Not handling this case\n");
         exit(1);
       }
       PROCESS_WAIT_STATUS(index)  = *status;
@@ -526,7 +572,8 @@ void ptrace_os_wait(pid_t t) {
   pid_t tid;
   int status;
   int index;
-  //PRINT_ALL_PROCESS_INFO("entry");
+
+  //PRINT_ALL_PROCESS_INFO("ENTRY");
   for (index = 0; index < _target.number_processes; index++) {
     status = PROCESS_WAIT_STATUS(index);
     tid    = PROCESS_TID(index);
@@ -549,8 +596,7 @@ void ptrace_os_wait(pid_t t) {
       break;
     }
   }
-
-  //PRINT_ALL_PROCESS_INFO("exit");
+  //PRINT_ALL_PROCESS_INFO("EXIT");
 }
 
 long ptrace_os_continue_and_wait(pid_t tid, int sig)
@@ -860,24 +906,47 @@ void ptrace_os_stopped_single(char *str, bool debug) {
   } /* CURRENT_PROCESS_WAIT_FLAG */
 }
 
-long ptrace_linux_getset(long request, pid_t pid, int addr, void *data) {
+long ptrace_linux_getset(long request, pid_t pid, int addr, void *data, size_t *len) {
   long ret = -1;
+#ifndef DEEBE_RELEASE
+  char *req;
+#endif
   /* The old way.. */
   if (request < 0) {
     ret = PTRACE(request, pid, addr, data);
   } else {
     struct iovec vec;
     vec.iov_base = data;
-    vec.iov_len = REG_MAX_SIZE;
+    if (*len <= 0) {
+      /* This will never happen */
+      vec.iov_len = REG_MAX_SIZE;
+    } else {
+      vec.iov_len = *len;
+    }
     if (request == PTRACE_GETREGS) {
       ret = PTRACE(PTRACE_GETREGSET, pid, NT_PRSTATUS, &vec);
+#ifndef DEEBE_RELEASE
+      req = "PTRACE_GETREGS = NT_PRSTATUS";
+#endif
+      *len = vec.iov_len;
     } else if (request == PTRACE_GETFPREGS) {
       ret = PTRACE(PTRACE_GETREGSET, pid, NT_PRFPREG, &vec);
+#ifndef DEEBE_RELEASE
+      req = "PTRACE_GETREGS = NT_PRFPREG";
+#endif
+      *len = vec.iov_len;
     } else if (request == PTRACE_SETREGS) {
+#ifndef DEEBE_RELEASE
+      req = "PTRACE_SETREGS = NT_PRSTATUS";
+#endif
       ret = PTRACE(PTRACE_SETREGSET, pid, NT_PRSTATUS, &vec);
     } else if (request == PTRACE_SETFPREGS) {
       ret = PTRACE(PTRACE_SETREGSET, pid, NT_PRFPREG, &vec);
+#ifndef DEEBE_RELEASE
+      req = "PTRACE_SETREGS = NT_PRFPREG";
+#endif
     }
+    DBG_PRINT("request:%s vec.iov_len:%ld *len:%ld ret:%ld \n", req, vec.iov_len, *len, ret);
   }
   return ret;
 }

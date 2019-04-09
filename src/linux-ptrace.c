@@ -250,173 +250,21 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
 #ifdef PT_GETREGS
 bool _read_reg(pid_t tid, int GET, int SET, void **reg, uint8_t **reg_rw,
                size_t *reg_size) {
-  bool ret = false;
-  size_t buf_size = REG_MAX_SIZE;
-  uint8_t *a = NULL;
-  a = (uint8_t *)malloc(buf_size);
-
-  if (a) {
-    uint8_t *b = NULL;
-    b = (uint8_t *)malloc(buf_size);
-    if (b) {
-      int ptrace_status;
-      /*
-       * ptrace get's do not return how much was written
-       * so the have a general read function, we need to figure
-       * that out for ourselves.
-       *
-       * Fill the 'a' buffer with 0xff
-       * fill the 'b' buffer with 0xee
-       * Do 2 reads
-       * Reading from the end of the buffer,
-       * figure out the size of the returned buffer.
-       */
-      memset(a, 0xff, buf_size);
-      memset(b, 0xee, buf_size);
-      errno = 0;
-      ptrace_status = PTRACE_GETSET(GET, tid, 0, a);
-      int perrno = errno;
-      if (0 != ptrace_status) {
-        /* Failure */
-        if (_read_reg_verbose) {
-          char str[128];
-          memset(&str[0], 0, 128);
-          DBG_PRINT("Error reading registers tid %d status is %d\n", tid,
-                    ptrace_status);
-          if (0 == strerror_r(perrno, &str[0], 128)) {
-            DBG_PRINT("Error %d %s\n", perrno, str);
-          }
-        }
-      } else {
-        ptrace_status = PTRACE_GETSET(GET, tid, 0, b);
-        if (0 == ptrace_status) {
-          size_t i = 0;
-          for (i = buf_size; i > 0; i--) {
-            if ((a[i - 1] != 0xff) || (b[i - 1] != 0xee))
-              break;
-          }
-          if (i) {
-            /* check if end of buffer was used */
-            if (i > buf_size / 2) {
-              if (_read_reg_verbose) {
-                DBG_PRINT("Warning register read buffer may not be big enough "
-                          "used %zu of %zu\n",
-                          i, buf_size);
-              }
-            }
-            if (*reg_size) {
-              if (*reg_size != i) {
-                if (_read_reg_verbose) {
-                  DBG_PRINT("%s Warning register read size does not agree with "
-                            "last read %zu vs %zu\n",
-                            __func__, *reg_size, i);
-                }
-                *reg_size = i;
-                if (*reg) {
-                  if (*reg)
-                    free(*reg);
-                  *reg = malloc(*reg_size);
-                  if (*reg == NULL) {
-                    DBG_PRINT(
-                        "%s Internal Error register buffer allocation failed\n",
-                        __func__);
-                    *reg_size = 0;
-                  }
-                  if (*reg_rw) {
-                    free(*reg_rw);
-                    *reg_rw = NULL;
-                  }
-                }
-              }
-
-            } else {
-              /* First */
-              *reg_size = i;
-              *reg = malloc(*reg_size);
-              if (*reg == NULL) {
-                DBG_PRINT(
-                    "%s Internal Error register buffer allocation failed\n",
-                    __func__);
-                *reg_size = 0;
-              }
-            }
-
-            if (0 != (*reg_size) && (NULL != *reg)) {
-              memcpy(*reg, b, *reg_size);
-              /* Success or no point in handling the error */
-              ret = true;
-
-              /*
-               * Find out which registers are read/write vs just read only
-               * Do this by toggling each byte in just read registers and
-               * noting where failures happen.  This depends on a well
-               * behaved kernel reporting the error and that the registers
-               * are accessed on byte boundaryies.
-               *
-               * Assume the read/write nature does not change and only
-               * recalculate the read/write information when the size of
-               * the register read changes (should also not happen) or
-               * to initialize.
-               */
-              if (*reg_rw == NULL) {
-                *reg_rw = (uint8_t *)malloc(*reg_size * sizeof(uint8_t));
-                if (*reg_rw) {
-                  size_t j;
-                  /* Assume read write */
-                  memset(*reg_rw, 0xff, *reg_size);
-                  for (j = 0; j < *reg_size; j++) {
-                    if (0 == PTRACE_GETSET(SET, tid, 0, a)) {
-                      /* Toggle current byte */
-                      a[j] ^= 0xff;
-                      if (0 != PTRACE_GETSET(SET, tid, 0, a)) {
-                        /* Set byte to read only */
-                        (*reg_rw)[j] = 0;
-                        if (_read_reg_verbose) {
-                          DBG_PRINT("Register location %zu is read only\n", j);
-                        }
-                      }
-                      /* Restore current byte */
-                      a[j] ^= 0xff;
-                    }
-                  }
-                  /*
-                   * Trailing restore
-                   * No point handling the error case
-                   */
-                  if (0 != PTRACE_GETSET(SET, tid, 0, a)) {
-                    if (_read_reg_verbose) {
-                      DBG_PRINT("Error restoring registers\n");
-                    }
-                  }
-                }
-              }
-            } else {
-              /* Failure */
-              ;
-            }
-          } else {
-            if (_read_reg_verbose) {
-              DBG_PRINT("Error no data returned in %s\n", __func__);
-            }
-          }
-        } else {
-          /* Failure */
-          if (_read_reg_verbose) {
-            DBG_PRINT("Error reading registers in %s\n", __func__);
-          }
-        }
-      }
-      free(b);
-      b = NULL;
-    } else {
-      /* Failure */
-      ;
+  bool ret = true;
+  *reg_rw = NULL;
+  if (*reg == NULL) {
+    *reg = malloc(REG_MAX_SIZE);
+  }
+  *reg_size = REG_MAX_SIZE;
+  long read_size = PTRACE_GETSET(GET, tid, 0, *reg, reg_size);
+  if (0 != read_size) {
+    if (_read_reg_verbose) {
+      DBG_PRINT("Error : Read register %d : %s\n", GET, strerror(errno));
     }
-    free(a);
-    a = NULL;
-  } else {
-    /* Failure */
-    ;
+    free(*reg);
+    *reg = NULL;
+    *reg_size = 0;
+    ret = false;
   }
   return ret;
 }
@@ -424,7 +272,7 @@ bool _read_reg(pid_t tid, int GET, int SET, void **reg, uint8_t **reg_rw,
 
 #ifdef PT_SETREGS
 void _write_reg(pid_t tid, long SET, void *reg) {
-  if (0 != PTRACE_GETSET(SET, tid, 0, reg)) {
+  if (0 != PTRACE_GETSET(SET, tid, 0, reg, &_target.reg_size)) {
     if (_write_reg_verbose) {
       DBG_PRINT("Error : Write register %d : %s\n", SET, strerror(errno));
     }
@@ -1263,6 +1111,7 @@ int ptrace_add_break(pid_t tid, int type, uint64_t addr, size_t len) {
 int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
   int ret = RET_ERR;
   unsigned long kaddr = (unsigned long)addr;
+
   if (_remove_break_verbose) {
     DBG_PRINT("%s %d %lx %zu\n", __func__, type, kaddr, len);
   }
@@ -2093,10 +1942,23 @@ void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname,
   if (perrno != 0) {
     if (perrno == ESRCH) {
        DBG_PRINT("Tracee pid %d is dead or not traced or not stopped\n", pid);
+    } else if (perrno == EPERM) {
+      DBG_PRINT("Tracee pid %d returned EPERM\n", pid);
+    } else if (perrno == EIO) {
+      DBG_PRINT("Tracee pid %d returned EIO\n", pid);
+    } else if (perrno == EINVAL) {
+      DBG_PRINT("Tracee pid %d returned EINVAL\n", pid);
+    } else if (perrno == EFAULT) {
+      DBG_PRINT("Tracee pid %d returned EFAULT\n", pid);
+    } else if (perrno == EBUSY) {
+      DBG_PRINT("Tracee pid %d returned EBUSY\n", pid);
+    } else {
+      DBG_PRINT("Tracee pid %d returned UNKNOWN\n", pid);
     }
+
     DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
     DBG_PRINT("Failed for request %d (%s) pid : %d perrno: %d\n",
-                request, reqstr, pid, perrno);
+              request, reqstr, pid, perrno);
     memset(&str[0], 0, 128);
     strerror_r(perrno, &str[0], 128);
     DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);

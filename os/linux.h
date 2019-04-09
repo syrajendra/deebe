@@ -49,7 +49,7 @@
 	 * FreeBSD and Linux swap the 3rd / 4th arg,
 	 * default is linux so this is a noop
 	 */
-	#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
+	#define PTRACE_GETSET(a, b, c, d, e) ptrace_linux_getset((a), (b), (c), (d), (e))
 #else
 	/* Don't know how to implement pass by reference of variable number of arguments */
 	//int ptrace_debug(char *reqstr, char *srcname, uint line, int request, pid_t pid, ...);
@@ -65,18 +65,11 @@
 			errno = 0; \
 			long int ret = ptrace(a, b, c, d); \
 			int _perrno  = errno; \
-			if ((strcmp("PTRACE_GETREGSET", #a) != 0) && \
-				(strcmp("PTRACE_SETREGSET", #a) != 0) && \
-				(strcmp("PT_READ_D", #a) != 0) && \
-				(strcmp("PT_WRITE_D", #a) != 0) && \
-				(strcmp("PTRACE_PEEKUSER", #a) != 0) && \
-				(strcmp("PTRACE_POKEUSER", #a) != 0) ) { \
-				log_ptrace(a, b, #a, __FILE__, __LINE__, _perrno, ret); \
-			} \
+			log_ptrace(a, b, #a, __FILE__, __LINE__, _perrno, ret); \
 			errno = _perrno; \
 			ret == 0 ? 0 : ret; \
 		})
-	#define PTRACE_GETSET(a, b, c, d) ptrace_linux_getset((a), (b), (c), (d))
+	#define PTRACE_GETSET(a, b, c, d, e) ptrace_linux_getset((a), (b), (c), (d), (e))
 #endif
 
 /* Linux ptrace returns long */
@@ -98,7 +91,7 @@ int os_thread_kill(int tid, int sig);
 long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig);
 int ptrace_os_gen_thread(pid_t pid, pid_t tid);
 void ptrace_os_stopped_single(char *str, bool debug);
-long ptrace_linux_getset(long request, pid_t pid, int addr, void *data);
+long ptrace_linux_getset(long request, pid_t pid, int addr, void *data, size_t *len);
 bool memory_os_region_info_gdb(uint64_t addr, char *out_buff,
 			       size_t out_buf_size);
 bool ptrace_os_read_auxv(char *out_buff, size_t out_buf_size, size_t offset,

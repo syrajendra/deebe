@@ -46,9 +46,9 @@ void _breakpoint_print(struct breakpoint *bpl) {
   struct breakpoint *p = bpl;
   while (p != NULL) {
     DBG_PRINT("%p\n", p);
-    DBG_PRINT("\ta 0x%lx\n", p->addr);
-    DBG_PRINT("\tn %p\n", p->n);
-    DBG_PRINT("\tp %p\n", p->p);
+    DBG_PRINT("\taddr 0x%lx\n", p->addr);
+    DBG_PRINT("\tnext %p\n", p->n);
+    DBG_PRINT("\tprev %p\n", p->p);
     DBG_PRINT("\tdata\n\t");
     util_print_buffer(fp_log, 0, p->len, p->data);
     DBG_PRINT("\tbdata\n\t");
@@ -161,6 +161,7 @@ struct breakpoint *breakpoint_add(struct breakpoint **bpl, int debug_level,
       }
     }
   }
+  //_breakpoint_print(*bpl);
   return ret;
 }
 

@@ -148,7 +148,7 @@ bool ptrace_arch_write_single_dbreg(pid_t tid, size_t reg, void *val) {
     unsigned long addr = offsetof(struct user, u_debugreg[reg]);
     if (0 != PTRACE(PTRACE_POKEUSER, tid, addr, *(udr_type_t*)val))
       ret = false;
-    else 
+    else
       ret = true;
   }
   return ret;

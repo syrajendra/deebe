@@ -508,7 +508,7 @@ ps_err_e ps_lgetregs (struct ps_prochandle *ph,
               lwpid_t lwpid, prgregset_t gregset)
 {
   DBG_PRINT("Called\n");
-  //ptrace_linux_getset(PTRACE_GETREGS, lwpid, 0, &gregset);
+  //ptrace_linux_getset(PTRACE_GETREGS, lwpid, 0, &gregset, sizeof(gregset));
   *gregset = 0;
   return PS_OK;
 }
