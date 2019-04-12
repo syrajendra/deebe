@@ -40,6 +40,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <dirent.h>
+#include <sched.h>
 #include "global.h"
 #include "dptrace.h"
 #include "breakpoint.h"
@@ -281,8 +282,6 @@ bool ptrace_os_wait_new_thread(pid_t *out_pid, int *out_status) {
       int errs_max = 5;
       int errs = 0;
       for (errs = 0; errs < errs_max; errs++) {
-        /* Sleep for a 1 msec */
-        util_usleep(1000);
         tid2 = waitpid(tid, &thread_status, WNOHANG | __WCLONE);
         if (tid2 == tid) {
           break;
@@ -369,7 +368,6 @@ bool ptrace_os_check_new_thread(pid_t pid, int status, pid_t *out_pid) {
           DBG_PRINT("Waiting for new child tid :%d to report stop signal\n", new_tid);
 				  while(1) {
 				  	/* Sleep for a 1 msec */
-				  	util_usleep(1000);
 				  	pid = ptrace_os_waitpid(new_tid, &thread_status);
 				  	if ((pid == new_tid) &&
                 (WSTOPSIG(thread_status) == SIGSTOP)) {
@@ -589,7 +587,7 @@ void ptrace_os_wait(pid_t t) {
     tid = ptrace_os_waitpid(t, &status);
     if (tid == 0) { /* no children in a waitable state */
       //DBG_PRINT("No children in waitable state \n");
-      util_usleep(1000);
+      sched_yield();
       continue;
     } else {
       DBG_PRINT("tid:%d wait_status:%x ptrace_event:%s\n", tid, status, PTRACE_EVENT_STR(status));
@@ -604,24 +602,11 @@ long ptrace_os_continue_and_wait(pid_t tid, int sig)
   long ret       = RET_ERR;
   int real_state = get_process_state(tid);
   if (real_state == PRS_STOP) {
+
     /* since child is in stopped state continue it */
     ret = PTRACE(PTRACE_CONT, tid, 1, sig);
     DBG_PRINT("Waiting for tid:%d to run/stop PTRACE_CONT ret:%d\n",
                 tid, ret);
-    util_usleep(1000);
-
-    //while(1) {
-      //if (get_process_state(tid) == PRS_RUN) break;
-      //int status = -1;
-      //int wait_tid = ptrace_os_waitpid(tid, &status);
-      //if (wait_tid == 0) { /* no children in a waitable state */
-      //  //DBG_PRINT("No children in waitable state \n");
-      //  util_usleep(1000);
-      //  continue;
-      //} else {
-      //  break;
-      //}
-    //}
   }
   return ret;
 }
@@ -633,8 +618,7 @@ void ptrace_os_continue_others(pid_t ctid) {
     for (index = 0; index < _target.number_processes; index++) {
       pid_t tid = PROCESS_TID(index);
       bool wait = PROCESS_WAIT_FLAG(index);
-      /* Add sleep here so that for large number of threads deebe gets Ctrl+C from debugger */
-      util_usleep(100);
+
       //DBG_PRINT("tid:%d cont_tid:%d wait_flag:%d process_state:%s pending signal:%d\n",
       //				tid, ctid, wait,
       //				PROCESS_STATE_STR(index), PROCESS_SIG(index));
@@ -759,9 +743,6 @@ int ptrace_os_gen_thread(pid_t pid, pid_t tid) {
             /* Some thread is waiting.. so goto end and return an error */
             goto end;
           }
-
-          /* Sleep for a a msec */
-          util_usleep(1000);
 
           wait_ret = ptrace_wait(str, 0, true);
           if (wait_ret == RET_OK) {

@@ -49,6 +49,7 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sched.h>
 #include "breakpoint.h"
 #include "delf.h"
 #include "dptrace.h"
@@ -966,7 +967,6 @@ void ptrace_quick_kill(pid_t pid, pid_t tid) {
   if(!target_is_attached()) {
     DBG_PRINT("Killing tracee\n");
     kill(pid, SIGKILL); /* XXX change to pid */
-    util_usleep(1000);
   }
   DBG_PRINT("Killing tracer\n");
   exit(0);
@@ -985,7 +985,6 @@ void ptrace_kill(pid_t pid, pid_t tid) {
     DBG_PRINT("Killing tracee\n");
     /* As per linux manual PTRACE_KILL is deprecated */
     kill(PROCESS_PID(0), SIGKILL);
-    util_usleep(1000);
   } else {
     ptrace_detach();
   }
@@ -1213,7 +1212,7 @@ static void update_process_state(pid_t tid)
       DBG_PRINT("tid:%d reported stop\n", wait_tid);
     } else if (wait_tid == 0) {
       //DBG_PRINT("No children in waitable state \n");
-      util_usleep(100);
+      sched_yield();
     }
   } while(real_state != PROCESS_STATE(index));
 }
@@ -1253,8 +1252,7 @@ static void _deliver_sig(int sig, int change_state) {
 		    	/* send signal */
           os_thread_kill(tid, sig);
           while (1) {
-            /* Sleep for a msec */
-            util_usleep(1000);
+            sched_yield();
             /* wait for the signal to takes affect */
             wait_status = -1;
 		    		wait_tid = ptrace_os_waitpid(tid, &wait_status);
@@ -1522,6 +1520,7 @@ static void _stopped_all(char *str) {
                 PROCESS_WAIT_STATUS(index)= PROCESS_WAIT_STATUS_DEFAULT;
                 PROCESS_WAIT_FLAG(index)  = 0;
                 PROCESS_STATE(index)      = PRS_RUN;
+                target_thread_make_current(PROCESS_TID(index));
                 ptrace_os_continue_and_wait(PROCESS_TID(index), PROCESS_SIG(index));
             } else {
               /*
@@ -1661,8 +1660,6 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
   if (CURRENT_PROCESS_WAIT_FLAG) {
     if (!strlen(str)) {
       ret = RET_IGNORE;
-      /* Add sleep here so that deebe accepts Ctrl+C from debugger */
-      util_usleep(100);
     } else {
       DBG_PRINT("Waiting for all threads to stop/exit\n");
       while(1) {
@@ -1672,15 +1669,11 @@ int ptrace_wait(char *str, int step, bool skip_continue_others) {
           break;
         }
         _deliver_sig(SIGSTOP, PRS_STOP);
-        /* Add sleep here so that deebe accepts Ctrl+C from debugger */
-        util_usleep(100);
       }
     }
   } else {
     if (step) ret = RET_OK;
     ret = RET_CONTINUE_WAIT;
-    /* Add sleep here so that deebe accepts Ctrl+C from debugger */
-    util_usleep(100);
   }
   //PRINT_ALL_PROCESS_INFO("exit");
   DBG_PRINT("return:%s\n", RETURN_CODE_STR(ret));
