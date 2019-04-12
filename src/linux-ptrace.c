@@ -1240,7 +1240,9 @@ static void _deliver_sig(int sig, int change_state) {
     }
 
     if (sig > 0) {
-      if ( (real_state != PRS_STOP) && (real_state != PRS_EXIT) ) {
+      if ( (real_state != PRS_STOP) && \
+            (real_state != PRS_EXIT) && \
+            (real_state != PRS_ERR) ) {
         if ( !ptrace_os_new_thread(PROCESS_WAIT_STATUS(index)) ) {
 
           /* deebe stored state & actual state does not match */

@@ -295,7 +295,6 @@ int find_thread_info()
 
 void thread_db_cleanup()
 {
-  DBG_PRINT("Called\n");
   if (_target.thread_agent) {
     td_ta_delete_fptr(_target.thread_agent);
     _target.thread_agent = NULL;
