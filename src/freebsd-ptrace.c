@@ -165,7 +165,10 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
         ret += diff;
       }
     } else if (target_is_gdb_reg(r, &i, frll)) {
-      memcpy(gdb, _target.freg + frll[i].off, frll[i].size);
+      if (_target.freg_size)
+        memcpy(gdb, _target.freg + frll[i].off, frll[i].size);
+      else
+        memset(gdb, 0x0, frll[i].size);
       memset(avail, 0xff, frll[i].size);
       gdb += frll[i].size;
       avail += frll[i].size;
@@ -424,6 +427,7 @@ bool _read_greg(pid_t tid) {
 
 bool _read_freg(pid_t tid) {
   bool ret = false;
+#ifndef __AARCH32__
 #ifdef PT_GETFPREGS
   ret = _read_reg(tid, PT_GETFPREGS, PT_SETFPREGS, &_target.freg,
                   &_target.freg_rw, &_target.freg_size);
@@ -431,6 +435,7 @@ bool _read_freg(pid_t tid) {
   _target.freg = NULL;
   _target.freg_rw = NULL;
   _target.freg_size = 0;
+#endif
 #endif
   return ret;
 }
