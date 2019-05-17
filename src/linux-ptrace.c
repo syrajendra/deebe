@@ -1965,7 +1965,6 @@ void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname,
   }
 }
 
-#ifdef __linux__
 int ptrace_debug(char *reqstr, char *srcname, uint line,
                   int request, pid_t pid, ...)
 {
@@ -1980,18 +1979,4 @@ int ptrace_debug(char *reqstr, char *srcname, uint line,
   errno = perrno;
   return ret;
 }
-#else
-int ptrace_debug(int request, pid_t pid, caddr_t addr,
-                  int data, char *reqstr, char *srcname,
-                  uint line)
-{
-  int perrno;
-  errno   = 0;
-  int ret = ptrace(request, pid, addr, data);
-  perrno  = errno;
-  log_ptrace(request, pid, reqstr, srcname, line, errno, ret);
-  errno = perrno;
-  return ret;
-}
-#endif
 #endif
