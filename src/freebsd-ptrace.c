@@ -148,10 +148,26 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
   int r, rmax;
   size_t diff;
   rmax = ptrace_arch_gdb_greg_max();
+#ifndef DEEBE_RELEASE
+  if (_read_reg_verbose) {
+    printf("\n");
+  }
+#endif
   for (r = 0; r < rmax; r++) {
     int i;
     if (target_is_gdb_reg(r, &i, grll)) {
       memcpy(gdb, _target.reg + grll[i].off, grll[i].size);
+#ifndef DEEBE_RELEASE
+      int j;
+      if (_read_reg_verbose) {
+        if (r >10 && r <16) {
+          printf("Reg:%d Name:%s Size:%zd ", i, grll[i].name, grll[i].size);
+          for (j=grll[i].size-1; j>=0; j--)
+            printf("%02x ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
+          printf("\n");
+        }
+      }
+#endif
       memset(avail, 0xff, grll[i].size);
       gdb += grll[i].size;
       avail += grll[i].size;
@@ -1834,19 +1850,70 @@ int ptrace_get_tls_address(int64_t thread, uint64_t offset, uint64_t lm,
 }
 
 #ifndef DEEBE_RELEASE
-int ptrace_debug(int request, pid_t pid, caddr_t addr, int data, char *reqstr, char *srcname, uint line)
+void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname,
+                uint line, int perrno, long int ret)
 {
-  errno = 0;
   char str[128];
-  int ret = ptrace(request, pid, addr, data);
-  if (errno != 0) {
-    DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
-    DBG_PRINT("Failed for request : %s pid : %x\n", reqstr, pid);
-    memset(&str[0], 0, 128);
-    if (0 == strerror_r(errno, &str[0], 128)) {
-      DBG_PRINT("\tError-code : %d Error-msg : %s\n", errno, str);
+  if (perrno != 0) {
+    if (perrno == ESRCH) {
+       DBG_PRINT("Tracee pid %d is dead or not traced or not stopped\n", pid);
+    } else if (perrno == EPERM) {
+      DBG_PRINT("Tracee pid %d returned EPERM\n", pid);
+    } else if (perrno == EIO) {
+      DBG_PRINT("Tracee pid %d returned EIO\n", pid);
+    } else if (perrno == EINVAL) {
+      /* Do not log PT_GETREGS   PT_SETREGS
+                    PT_GETFPREGS PT_SETFPREGS
+                    PT_GETDBREGS PT_SETDBREGS
+      */
+    if (!(request >= 33 && request <= 38))
+        DBG_PRINT("Tracee pid %d returned EINVAL\n", pid);
+    } else if (perrno == EFAULT) {
+      DBG_PRINT("Tracee pid %d returned EFAULT\n", pid);
+    } else if (perrno == EBUSY) {
+      DBG_PRINT("Tracee pid %d returned EBUSY\n", pid);
+    } else if (perrno == ENOENT) {
+      DBG_PRINT("Tracee pid %d returned ENOENT\n", pid);
+    } else if (perrno == ENAMETOOLONG) {
+      DBG_PRINT("Tracee pid %d returned ENAMETOOLONG\n", pid);
+    } else {
+      DBG_PRINT("Tracee pid %d returned UNKNOWN\n", pid);
+    }
+
+    /* deebe tries to write to read only registers to identify them as RO registers
+       RO registers are 144 152 153 154 155
+       Do not flag error in such cases
+    */
+    if (perrno != EINVAL && request != 33) {
+      DBG_PRINT("ERROR: PTRACE call failed @ source %s:%d\n", srcname, line);
+      DBG_PRINT("Failed for request %d (%s) pid : %d perrno: %d\n",
+              request, reqstr, pid, perrno);
+      memset(&str[0], 0, 128);
+      strerror_r(perrno, &str[0], 128);
+      DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
+    }
+  } else {
+    /* Do not log PT_GETREGS   PT_SETREGS
+                  PT_GETFPREGS PT_SETFPREGS
+                  PT_GETDBREGS PT_SETDBREGS
+    */
+    if (!(request >= 33 && request <= 38)) {
+      DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n",
+                  srcname, line, request, reqstr, pid, ret);
     }
   }
+}
+
+int ptrace_debug(int request, pid_t pid, caddr_t addr,
+                  int data, char *reqstr, char *srcname,
+                  uint line)
+{
+  int perrno;
+  errno   = 0;
+  int ret = ptrace(request, pid, addr, data);
+  perrno  = errno;
+  log_ptrace(request, pid, reqstr, srcname, line, errno, ret);
+  errno = perrno;
   return ret;
 }
 #endif
