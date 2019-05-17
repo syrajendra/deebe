@@ -889,9 +889,8 @@ void ptrace_os_stopped_single(char *str, bool debug) {
 
 long ptrace_linux_getset(long request, pid_t pid, int addr, void *data, size_t *len) {
   long ret = -1;
-#ifndef DEEBE_RELEASE
-  char *req;
-#endif
+  char *req_str = NULL;
+
   /* The old way.. */
   if (request < 0) {
     ret = PTRACE(request, pid, addr, data);
@@ -906,28 +905,20 @@ long ptrace_linux_getset(long request, pid_t pid, int addr, void *data, size_t *
     }
     if (request == PTRACE_GETREGS) {
       ret = PTRACE(PTRACE_GETREGSET, pid, NT_PRSTATUS, &vec);
-#ifndef DEEBE_RELEASE
-      req = "PTRACE_GETREGS = NT_PRSTATUS";
-#endif
+      req_str = "PTRACE_GETREGS = NT_PRSTATUS";
       *len = vec.iov_len;
     } else if (request == PTRACE_GETFPREGS) {
       ret = PTRACE(PTRACE_GETREGSET, pid, NT_PRFPREG, &vec);
-#ifndef DEEBE_RELEASE
-      req = "PTRACE_GETREGS = NT_PRFPREG";
-#endif
+      req_str = "PTRACE_GETREGS = NT_PRFPREG";
       *len = vec.iov_len;
     } else if (request == PTRACE_SETREGS) {
-#ifndef DEEBE_RELEASE
-      req = "PTRACE_SETREGS = NT_PRSTATUS";
-#endif
+      req_str = "PTRACE_SETREGS = NT_PRSTATUS";
       ret = PTRACE(PTRACE_SETREGSET, pid, NT_PRSTATUS, &vec);
     } else if (request == PTRACE_SETFPREGS) {
       ret = PTRACE(PTRACE_SETREGSET, pid, NT_PRFPREG, &vec);
-#ifndef DEEBE_RELEASE
-      req = "PTRACE_SETREGS = NT_PRFPREG";
-#endif
+      req_str = "PTRACE_SETREGS = NT_PRFPREG";
     }
-    DBG_PRINT("request:%s vec.iov_len:%ld *len:%ld ret:%ld \n", req, vec.iov_len, *len, ret);
+    DBG_PRINT("request:%s vec.iov_len:%ld *len:%ld ret:%ld \n", req_str, vec.iov_len, *len, ret);
   }
   return ret;
 }
