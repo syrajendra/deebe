@@ -63,6 +63,6 @@
 #define GDB_FPR5 21
 #define GDB_FPR6 22
 #define GDB_FPR7 23
-#define GDB_FPS 24
+#define GDB_FPSR 24
 
 #endif

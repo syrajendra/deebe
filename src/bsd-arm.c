@@ -74,7 +74,7 @@ struct reg_location_list frll[] = {
     RLL(fp5, fpr[5], GDB_FPR5, 0, 0, 0, ieee754, float, -1, -1, X, X),
     RLL(fp6, fpr[6], GDB_FPR6, 0, 0, 0, ieee754, float, -1, -1, X, X),
     RLL(fp7, fpr[7], GDB_FPR7, 0, 0, 0, ieee754, float, -1, -1, X, X),
-    RLL(fpsr, fpr_fpsr, GDB_FPS, 0, 0, 0, uint, hex, -1, -1, X, X),
+    RLL(fpsr, fpr_fpsr, GDB_FPSR, 0, 0, 0, uint, hex, -1, -1, X, X),
     {0},
 };
 
@@ -86,7 +86,11 @@ struct reg_location_list fxrll[] = {
     {0},
 };
 
+#ifndef __AARCH32__
 static uint32_t bkpt[1] = {0xe6000011};
+#else
+static uint32_t bkpt[1] = {0xe7f001f0};
+#endif
 
 size_t ptrace_arch_swbreak_size() { return 4; }
 
