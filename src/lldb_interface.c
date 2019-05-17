@@ -102,9 +102,9 @@ static bool get_ostype(char **ptr) {
     *ptr = (char *)malloc(1 + strlen(&name.sysname[0]));
     if (*ptr != NULL) {
       if (strncmp(&name.sysname[0], "Linux", 5) == 0)
-        snprintf(*ptr, 5, "linux");
+        snprintf(*ptr, 6, "linux");
       else if (strncmp(&name.sysname[0], "FreeBSD", 7) == 0)
-        snprintf(*ptr, 7, "freebsd");
+        snprintf(*ptr, 8, "freebsd");
       else
         snprintf(*ptr, strlen(&name.machine[0]), "%s", &name.machine[0]);
       ret = true;
