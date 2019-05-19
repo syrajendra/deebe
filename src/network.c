@@ -182,9 +182,20 @@ bool _set_net(struct sockaddr_in *sockadd, char *net) {
   return ret;
 }
 
+void network_hostname(char *hostname)
+{
+  char host[256];
+  char serv[256];
+  if (0 == getnameinfo((struct sockaddr *)&network_client_address, network_client_address_size,
+              host, sizeof(host),
+              serv, sizeof(serv),
+              0) )
+    memcpy(hostname, host, sizeof(host));
+}
+
 void network_ip_address(char *ip_address)
 {
-  char buff[512];
+  char buff[256];
   struct in_addr server_addr;
   if (0 == gethostname(buff, sizeof(buff))) {
     struct hostent *host = gethostbyname(buff);

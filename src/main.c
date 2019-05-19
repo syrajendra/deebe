@@ -176,6 +176,10 @@ int main_debug() {
         fflush(stdout);
 
         if (network_accept()) {
+          char hostname[256] = {'\0'};
+          network_hostname(hostname);
+          if (strlen(hostname) > 0)
+            fprintf(stdout, "Successfully connected to %s\n", hostname);
           do {
 	    if (packet_exchange ()) {
               break;
