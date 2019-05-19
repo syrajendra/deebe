@@ -1,6 +1,6 @@
 DEEBE : Pronounced 'Debbie'
 
-Deebe is a drop in replacement for gdbserver and lldb-server.
+Deebe is a drop in replacement for gdbserver.
 
 -----------------------------------------------------------------------------
 
@@ -34,16 +34,13 @@ The reference make version is
 make-3.81
 
 The reference gcc version is
-gcc-4.9.3
+gcc-4.9.3 or higher
 
 The reference gdb version is
-gdb-7.7
+gdb-8.2
 
 The reference clang version is
-clang-3.7.1
-
-The reference lldb version is
-lldb-3.7.1
+clang-3.7.1 or higher
 
 ----------------------------------------------------------------------------
 
