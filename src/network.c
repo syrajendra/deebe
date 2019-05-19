@@ -182,6 +182,19 @@ bool _set_net(struct sockaddr_in *sockadd, char *net) {
   return ret;
 }
 
+void network_ip_address(char *ip_address)
+{
+  char buff[512];
+  struct in_addr server_addr;
+  if (0 == gethostname(buff, sizeof(buff))) {
+    struct hostent *host = gethostbyname(buff);
+    if (host) {
+      memcpy(&server_addr, host->h_addr, sizeof(server_addr));
+      sprintf(ip_address, "%s", inet_ntoa(server_addr));
+    }
+  }
+}
+
 bool network_init() {
   bool ret = false;
   /* Cleanup possible old use */

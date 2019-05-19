@@ -167,7 +167,12 @@ int main_debug() {
       if (debugee_ok) {
         /* Debuggee is ok, now accept connection */
         /* Success */
-        fprintf(stdout, "Listening on port %ld\n", cmdline_port);
+        char ip_addr[512] = {'\0'};
+        network_ip_address(ip_addr);
+        if (strlen(ip_addr) > 0)
+          fprintf(stdout, "Listening on %s:%ld\n", ip_addr, cmdline_port);
+        else
+          fprintf(stdout, "Listening on port %ld\n", cmdline_port);
         fflush(stdout);
 
         if (network_accept()) {

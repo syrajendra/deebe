@@ -51,5 +51,6 @@ int network_quick_write();
 void network_clear_read();
 void network_clear_write();
 int network_put_dbg_packet(const char *buf, size_t size);
+void network_ip_address(char *ip_address);
 
 #endif /* DEEBE_NETWORK_H */
