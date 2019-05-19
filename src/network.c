@@ -149,7 +149,7 @@ void network_cleanup() {
 
 bool _set_net(struct sockaddr_in *sockadd, char *net) {
   bool ret = true;
-  if (net != NULL) {
+  if (net != NULL && strcmp(net, "localhost")) {
     struct in_addr inp;
     ret = false;
     if (0 != inet_aton(net, &inp)) {
