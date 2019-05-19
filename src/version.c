@@ -39,7 +39,7 @@
 #ifdef DEEBE_RELEASE
 #define RELEASE release
 #else
-#define RELEASE dirty
+#define RELEASE dev
 #endif
 
 #include "version.inc"

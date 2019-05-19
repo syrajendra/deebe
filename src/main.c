@@ -36,6 +36,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include "cmdline.h"
 #include "gdb_interface.h"
 #define DECL_GLOBAL
@@ -47,7 +49,9 @@
 #include "packet.h"
 #include "watchdog.h"
 
-#define LOG_FILENAME "/tmp/deebe.log"
+// default dir of deebe.log or set DEEBE_LOG_DIR env var
+#define LOG_PATH     "/tmp"
+#define LOG_FILENAME "deebe.log"
 
 /* Defined in signal.c */
 extern void (*signal_handle_sigio)(int sig);
@@ -195,14 +199,41 @@ void exit_cleanup()
   cmdline_cleanup();
 }
 
+#ifndef DEEBE_RELEASE
+static void create_log_file()
+{
+  char logfile[1024];
+  char *user    = getenv("USER");
+  char *tmp_dir = getenv("DEEBE_LOG_DIR");
+  if (!tmp_dir) {
+    tmp_dir     = LOG_PATH;
+  }
+  if (!user) {
+    user        = "";
+  }
+  snprintf(logfile, 1024, "%s/%s", tmp_dir, user);
+  if (0 == mkdir(logfile, 0700)) {
+    snprintf(logfile, 1024, "%s/%s/%s", tmp_dir, user, LOG_FILENAME);
+    fp_log        = fopen(logfile, "w");
+    if (fp_log) {
+      printf("Deebe log file : %s\n", logfile);
+    } else {
+      printf("Error: Failed to create log file '%s' : %s\n", logfile, strerror(errno));
+    }
+  } else {
+     printf("Error: Failed to create log dir '%s' : %s\n", logfile, strerror(errno));
+  }
+}
+#endif
+
 int main(int argc, char *argv[]) {
   int ret = -1;
 
   atexit(exit_cleanup);
-#ifndef DEEBE_RELEASE
-  fp_log = fopen(LOG_FILENAME, "w");
-#endif
 
+#ifndef DEEBE_RELEASE
+  create_log_file();
+#endif
   /* Signal handlers */
   signal_handle_sigio = main_sigio;
   signal_handle_sigrtmin = main_sigrtmin;
