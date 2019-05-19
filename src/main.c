@@ -212,16 +212,18 @@ static void create_log_file()
     user        = "";
   }
   snprintf(logfile, 1024, "%s/%s", tmp_dir, user);
-  if (0 == mkdir(logfile, 0700)) {
-    snprintf(logfile, 1024, "%s/%s/%s", tmp_dir, user, LOG_FILENAME);
-    fp_log        = fopen(logfile, "w");
-    if (fp_log) {
-      printf("Deebe log file : %s\n", logfile);
-    } else {
-      printf("Error: Failed to create log file '%s' : %s\n", logfile, strerror(errno));
+  if (0 != mkdir(logfile, 0700)) {
+    if (errno != EEXIST) {
+      printf("Error: Failed to create log dir '%s' : %s\n", logfile, strerror(errno));
+      return;
     }
+  }
+  snprintf(logfile, 1024, "%s/%s/%s", tmp_dir, user, LOG_FILENAME);
+  fp_log        = fopen(logfile, "w");
+  if (fp_log) {
+    printf("Deebe log file : %s\n", logfile);
   } else {
-     printf("Error: Failed to create log dir '%s' : %s\n", logfile, strerror(errno));
+    printf("Error: Failed to create log file '%s' : %s\n", logfile, strerror(errno));
   }
 }
 #endif
