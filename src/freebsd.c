@@ -71,7 +71,7 @@ bool fbsd_thread_state() {
       }
       for (i = 0; i < count; i++) {
 	struct kinfo_proc *kpp = &kp[i];
-	const char *str __unused;
+	const char * __attribute__((__unused__)) str = NULL;
 	if (_threadstate_verbose) {
 	  DBG_PRINT("\tpid %x tid %x ", kpp->ki_pid, kpp->ki_tid);
 	}

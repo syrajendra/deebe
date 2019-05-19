@@ -889,7 +889,7 @@ void ptrace_os_stopped_single(char *str, bool debug) {
 
 long ptrace_linux_getset(long request, pid_t pid, int addr, void *data, size_t *len) {
   long ret = -1;
-  char *req_str = NULL;
+  char * __attribute__((__unused__)) req_str = NULL;
 
   /* The old way.. */
   if (request < 0) {
