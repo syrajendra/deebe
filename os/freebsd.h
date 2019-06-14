@@ -78,4 +78,9 @@ bool ptrace_os_read_auxv(char *out_buff, size_t out_buf_size, size_t offset,
 pid_t ptrace_os_get_wait_tid(pid_t pid);
 int ptrace_os_get_tls_address(int64_t thread, uint64_t lm, uint64_t offset,
 			      uintptr_t *tlsaddr);
+unsigned long ptrace_arch_read_fs_base_reg(pid_t tid);
+unsigned long ptrace_arch_read_gs_base_reg(pid_t tid);
+void ptrace_arch_write_fs_base_reg(pid_t tid, unsigned long addr);
+void ptrace_arch_write_gs_base_reg(pid_t tid, unsigned long addr);
+
 #endif

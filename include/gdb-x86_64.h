@@ -92,8 +92,8 @@
 #define GDB_XMM14 54
 #define GDB_XMM15 55
 #define GDB_MXCSR 56
-#define GDB_FS_BASE 58 // 57 is used for GDB_ORG_RAX
-#define GDB_GS_BASE 59
+#define GDB_FS_BASE 57 // 59 is used for GDB_ORG_RAX
+#define GDB_GS_BASE 58
 
 
 #endif

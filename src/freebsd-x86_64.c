@@ -136,6 +136,46 @@ void ptrace_arch_set_pc(pid_t tid, unsigned long pc) {
   _write_greg(tid);
 }
 
+unsigned long ptrace_arch_read_fs_base_reg(pid_t tid) {
+  unsigned long addr = 0;
+  int pret = PTRACE(PT_GETFSBASE, tid, (caddr_t)&addr, 0);
+  if (-1 == pret) {
+    DBG_PRINT("Error: Failed to ptrace PT_GETFSBASE\n");
+  } else {
+    DBG_PRINT("Get segment fs addr: 0x%lx\n", addr);
+  }
+  return addr;
+}
+
+unsigned long ptrace_arch_read_gs_base_reg(pid_t tid) {
+  unsigned long addr = 0;
+  int pret = PTRACE(PT_GETGSBASE, tid, (caddr_t)&addr, 0);
+  if (-1 == pret) {
+    DBG_PRINT("Error: Failed to ptrace PT_GETGSBASE\n");
+  } else {
+    DBG_PRINT("Get segment gs addr: 0x%lx\n", addr);
+  }
+  return addr;
+}
+
+void ptrace_arch_write_fs_base_reg(pid_t tid, unsigned long addr) {
+  int pret = PTRACE(PT_SETFSBASE, tid, (caddr_t)&addr, 0);
+  if (-1 == pret) {
+    DBG_PRINT("Error: Failed to ptrace PT_SETFSBASE 0x%lx\n", addr);
+  } else {
+    DBG_PRINT("Set segment gs addr: 0x%lx\n", addr);
+  }
+}
+
+void ptrace_arch_write_gs_base_reg(pid_t tid, unsigned long addr) {
+  int pret = PTRACE(PT_SETGSBASE, tid, (caddr_t)&addr, 0);
+  if (-1 == pret) {
+    DBG_PRINT("Error: Failed to ptrace PT_SETGSBASE\n");
+  } else {
+    DBG_PRINT("Set segment gs addr: 0x%lx\n", addr);
+  }
+}
+
 void ptrace_arch_read_fxreg(pid_t tid) { }
 
 void ptrace_arch_write_fxreg(pid_t tid) { }

@@ -62,7 +62,9 @@
 #include "packet.h"
 #include "target.h"
 #include "util.h"
-
+#if defined (__amd64__)
+#include "gdb-x86_64.h"
+#endif
 static bool _read_reg_verbose = false;
 static bool _resume_current_verbose = false;
 static bool _resume_from_addr_verbose = false;
@@ -844,7 +846,23 @@ int ptrace_read_single_register(pid_t tid, unsigned int gdb, uint8_t *data,
       *read_size = fxrll[c].size;
       ret = RET_OK;
     }
-  } else {
+  }
+#if defined (__amd64__)
+  else if (gdb == GDB_FS_BASE) {
+    unsigned long addr = ptrace_arch_read_fs_base_reg(tid);
+    ret = RET_OK;
+    *read_size =  sizeof addr;
+    memcpy(data, &addr, *read_size);
+    memset(avail, 0xff, *read_size);
+  } else if (gdb == GDB_GS_BASE) {
+      unsigned long addr = ptrace_arch_read_gs_base_reg(tid);
+      ret = RET_OK;
+      *read_size = sizeof addr;
+      memcpy(data, &addr, *read_size);
+      memset(avail, 0xff, *read_size);
+  }
+#endif
+  else {
     size_t pad_size = 0;
     if (ptrace_arch_check_unrecognized_register(gdb, &pad_size)) {
       /* If the register is known not to be supported, handle */
@@ -855,12 +873,12 @@ int ptrace_read_single_register(pid_t tid, unsigned int gdb, uint8_t *data,
       } else {
         /* no support or returning 0 pad and an ok does not work, so return
          * default error */
-        DBG_PRINT("Unhandled read of reg %d\n", gdb);
+        DBG_PRINT("1: Unhandled read of reg %d\n", gdb);
       }
       *read_size = pad_size;
     } else {
       /* Freak out */
-      DBG_PRINT("Unhandled read of reg %d\n", gdb);
+      DBG_PRINT("2: Unhandled read of reg %d\n", gdb);
     }
   }
   return ret;
@@ -951,14 +969,28 @@ int ptrace_write_single_register(pid_t tid, unsigned int gdb, uint8_t *data,
         DBG_PRINT("INTERNAL ERROR : Problem in fx read of reg %d\n", gdb);
       }
     }
-  } else {
+  }
+#if defined (__amd64__)
+  else if (gdb == GDB_FS_BASE) {
+      unsigned long addr = 0;
+      memcpy(&addr, data, size);
+      ptrace_arch_write_fs_base_reg(tid, addr);
+      ret = RET_OK;
+  } else if (gdb == GDB_GS_BASE) {
+      unsigned long addr = 0;
+      memcpy(&addr, data, size);
+      ptrace_arch_write_gs_base_reg(tid, addr);
+      ret = RET_OK;
+  }
+#endif
+  else {
     size_t pad_size = 0;
     if (ptrace_arch_check_unrecognized_register(gdb, &pad_size)) {
       /* Unsupported */
       ret = RET_NOSUPP;
     } else {
       /* Freak out */
-      DBG_PRINT("INTERNAL ERROR : Unhandled read of reg %d\n", gdb);
+      DBG_PRINT("INTERNAL ERROR : Unhandled write of reg %d\n", gdb);
     }
   }
   return ret;
