@@ -226,8 +226,10 @@ static int get_static_tls_address(uint64_t offset, uintptr_t *tlsaddr)
   *tlsaddr = (psaddr_t) tcb_addr + offset + tls_offset;
 #elif defined(__i386__) || defined(__amd64__)
   int    dtv_index  = 0x0;
+#ifndef DEEBE_RELEASE
   unsigned long seg_base = read_segment_register();
   DBG_PRINT("seg_base: 0x%x <equals> tcb_addr: 0x%x\n", seg_base, (unsigned int)tcb_addr);
+#endif
   raddr = tcb_addr + off_dtv;
   TARGET_READ_MEM(raddr);
   LADDR dtv_addr = extract_value(buf, read_size);
