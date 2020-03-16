@@ -503,16 +503,23 @@ void ptrace_os_wait(pid_t t) {
   errno = 0;
   while (1) {
     wait_tid = waitpid(pid, &wait_status, WNOHANG);
-    if (wait_tid == -1)
-	{
+    if (wait_tid == -1) {
 	  if (errno != ECHILD)
 	    perror ("waitpid");
-	}
-      else if (wait_tid > 0)
-	break;
-
-      usleep (1000);
+	} else if (wait_tid > 0) {
+      if (WIFSTOPPED(wait_status)) {
+        int sig = WSTOPSIG(wait_status);
+        if (-1 == ptrace_arch_signal_to_gdb(sig)) {
+          os_thread_kill(wait_tid, sig);
+          DBG_PRINT("Ignore signal %d wait_tid %d\n", sig, wait_tid);
+          ptrace_os_continue(CURRENT_PROCESS_PID, CURRENT_PROCESS_TID, 0, 0);
+          continue;
+        }
+      }
+      break;
     }
+    usleep (1000);
+  }
 
   /*
    * If the process exited, save the status and bail: no need to go over
