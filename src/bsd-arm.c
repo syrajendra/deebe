@@ -89,7 +89,7 @@ struct reg_location_list fxrll[] = {
 #ifndef __AARCH32__
 static uint32_t bkpt[1] = {0xe6000011};
 #else
-static uint32_t bkpt[1] = {0xe7f001f0};
+static uint32_t bkpt[1] = {0xe7ffdefe};
 #endif
 
 size_t ptrace_arch_swbreak_size() { return 4; }
