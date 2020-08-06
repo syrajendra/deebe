@@ -6094,7 +6094,7 @@ x86_64-*-linux-*)
 	TD_SRC='linux-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) linux-thread_db.$(OBJEXT) linux-x86_64.$(OBJEXT) linux-common-x86.$(OBJEXT) linux.$(OBJEXT) x86.$(OBJEXT)'
 	;;
 
-i386-*-freebsd*)
+i386-*-freebsd*|i586-*-freebsd*)
 	# x86 freebsd
 	os=freebsd
 	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-x86.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) x86.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
