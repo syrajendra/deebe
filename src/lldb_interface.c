@@ -106,7 +106,7 @@ static bool get_ostype(char **ptr) {
       else if (strncmp(&name.sysname[0], "FreeBSD", 7) == 0)
         snprintf(*ptr, 8, "freebsd");
       else
-        snprintf(*ptr, strlen(&name.machine[0]), "%s", &name.machine[0]);
+        snprintf(*ptr, strlen(&name.machine[0])+1, "%s", &name.machine[0]);
       ret = true;
     }
   }
