@@ -24,7 +24,7 @@ AM_INIT_AUTOMAKE
 # c11 c
 # _GNU_SOURCE to compile is non-c99 parts
 AC_PROG_CC
-CFLAGS="$CFLAGS -Wall -Werror -std=c11 -D_GNU_SOURCE"
+CFLAGS="$CFLAGS -Wall -Werror -D_GNU_SOURCE"
 
 
 AC_PROG_CC
@@ -99,6 +99,18 @@ amd64-*-freebsd*|x86_64-*-freebsd*)
 	os=freebsd
 	TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-x86_64.$(OBJEXT) freebsd-common-x86.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT) x86.$(OBJEXT)'
 	;;
+
+mips64-*-freebsd*)
+       # mips64 freebsd
+       os=freebsd
+       TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-mips.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
+       ;;
+
+mips-*-freebsd*)
+       # mips freebsd
+       os=freebsd
+       TD_SRC='freebsd-ptrace.${OBJEXT} target_ptrace.$(OBJEXT) freebsd-mips.$(OBJEXT) freebsd.$(OBJEXT) freebsd-proc.$(OBJEXT) freebsd-thread_db.$(OBJEXT)'
+       ;;
 
 aarch64-*-linux-*)
 	os=linux
