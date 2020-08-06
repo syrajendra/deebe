@@ -111,9 +111,10 @@ ps_err_e ps_pglobal_lookup(struct ps_prochandle *ph, const char *obj,
 {
   uintptr_t sym_addr;
 
-  if (symbol_lookup(sym, &sym_addr) == RET_ERR)
-    return PS_NOSYM;
-
+  if (symbol_lookup(sym, &sym_addr) == RET_ERR) {
+     DBG_PRINT("Error: Symbol %s lookup failed\n", sym);
+     return PS_NOSYM;
+  }
   *addr = (psaddr_t) sym_addr;
   return PS_OK;
 }
