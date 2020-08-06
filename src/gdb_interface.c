@@ -1485,7 +1485,15 @@ static int handle_v_command(char *const in_buf, size_t in_len, char *out_buf,
        *
        * If threading is supported, (it is), vCont must be supported
        */
+#ifdef __arm__
+    #ifdef __AARCH32__
       sprintf(out_buf, "vCont;c;C;s;S");
+    #else
+      sprintf(out_buf, "vCont;c;C");
+    #endif
+#else
+      sprintf(out_buf, "vCont;c;C;s;S");
+#endif
       handled = true;
     } else if (n[0] == ';') {
       n++;
