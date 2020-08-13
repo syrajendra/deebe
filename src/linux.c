@@ -59,32 +59,33 @@ static long get_number_of_threads(pid_t pid)
   unsigned int flags;
   unsigned long minflt, cminflt, majflt, cmajflt, utime, stime;
   long cutime, cstime, priority, nice, num_threads = 0;
+  int ret __attribute__((unused));
 
   sprintf(proc_file, "/proc/%d/stat", pid);
   fd = fopen(proc_file, "r");
   if (fd) {
-    fscanf(fd, "%d %s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %ld",
-            &id,          // (1)  %d
-            comm,         // (2)  %s
-            &state,       // (3)  %c
-            &ppid,        // (4)  %d
-            &pgrp,        // (5)
-            &session,     // (6)
-            &tty_nr,      // (7)
-            &tpgid,       // (8)
-            &flags,       // (9)  %u
-            &minflt,      // (10) %lu
-            &cminflt,     // (11)
-            &majflt,      // (12)
-            &cmajflt,     // (13)
-            &utime,       // (14)
-            &stime,       // (15)
-            &cutime,      // (16) %ld
-            &cstime,      // (17)
-            &priority,    // (18)
-            &nice,        // (19)
-            &num_threads  // (20)
-            );
+    ret = fscanf(fd, "%d %s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %ld",
+                 &id,          // (1)  %d
+                 comm,         // (2)  %s
+                 &state,       // (3)  %c
+                 &ppid,        // (4)  %d
+                 &pgrp,        // (5)
+                 &session,     // (6)
+                 &tty_nr,      // (7)
+                 &tpgid,       // (8)
+                 &flags,       // (9)  %u
+                 &minflt,      // (10) %lu
+                 &cminflt,     // (11)
+                 &majflt,      // (12)
+                 &cmajflt,     // (13)
+                 &utime,       // (14)
+                 &stime,       // (15)
+                 &cutime,      // (16) %ld
+                 &cstime,      // (17)
+                 &priority,    // (18)
+                 &nice,        // (19)
+                 &num_threads  // (20)
+                 );
     fclose(fd);
   }
   return num_threads;
@@ -166,12 +167,13 @@ int get_process_state(pid_t tid)
   char comm[PATH_MAX];
   char state;
   int ppid;
+  int fret __attribute__((unused));
   for (index = 0; index < _target.number_processes; index++) {
     if (PROCESS_TID(index) == tid) {
       sprintf(proc_file, "/proc/%d/stat", PROCESS_TID(index));
       fd = fopen(proc_file, "r");
       if (fd) {
-        fscanf(fd, "%d %s %c %d", &id, comm, &state, &ppid);
+        fret = fscanf(fd, "%d %s %c %d", &id, comm, &state, &ppid);
         DBG_PRINT("ProcStat tid:%d state:%c\n", PROCESS_TID(index), state);
         switch(state) {
           case 'R' :
@@ -810,12 +812,14 @@ void ptrace_os_stopped_single(char *str, bool debug) {
         unsigned long watch_addr = 0;
         /* Fill out the status string */
         if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
-          gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT);
+          gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT,
+                          __FILE__, __LINE__);
           target_thread_make_current(tid);
           CURRENT_PROCESS_STOP = LLDB_STOP_REASON_BREAKPOINT;
         } else if (ptrace_arch_hit_watchpoint(tid, &watch_addr)) {
           /* A watchpoint was hit */
-          gdb_stop_string(str, g, tid, watch_addr, LLDB_STOP_REASON_WATCHPOINT);
+          gdb_stop_string(str, g, tid, watch_addr, LLDB_STOP_REASON_WATCHPOINT,
+                          __FILE__, __LINE__);
           target_thread_make_current(tid);
           CURRENT_PROCESS_STOP = LLDB_STOP_REASON_WATCHPOINT;
         } else {
@@ -847,7 +851,7 @@ void ptrace_os_stopped_single(char *str, bool debug) {
 
               reason = LLDB_STOP_REASON_BREAKPOINT;
             }
-            gdb_stop_string(str, g, tid, 0, reason);
+            gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
             DBG_PRINT("Process %x state : %d str:[%s] LLDB_STOP_REASON_BREAKPOINT\n",
             			tid, CURRENT_PROCESS_STATE, str);
             target_thread_make_current(tid);
@@ -873,7 +877,8 @@ void ptrace_os_stopped_single(char *str, bool debug) {
           } else {
             if (target_thread_make_current(tid)) {
               /* A non trap signal */
-              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL,
+                              __FILE__, __LINE__);
               DBG_PRINT("Process %x signal:%d state : %d str:[%s] LLDB_STOP_REASON_SIGNAL\n",
               				tid, s, CURRENT_PROCESS_STATE, str);
               CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;

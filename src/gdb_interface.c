@@ -2171,8 +2171,9 @@ void gdb_interface_put_console(char *b) {
  * Generate the gdb 'thread:xxxxxxx' string used by the stop events
  * When there is a single thread, return an empty string.
  */
-void gdb_stop_string(char *str, int sig, pid_t tid, unsigned long watch_addr,
-                     int reason) {
+void gdb_stop_string(char *str, int sig, pid_t tid,
+                    unsigned long watch_addr,
+                    int reason, char *filename, int lineno) {
   int index;
   char tstr[32] = "";
   char wstr[32] = "";
@@ -2182,6 +2183,7 @@ void gdb_stop_string(char *str, int sig, pid_t tid, unsigned long watch_addr,
    * lldb always wants the thread id
    * gdb only wants it if isn't the main pid/thread's
    */
+  DBG_PRINT("stop triggered from file:%s line:%d\n", filename, lineno);
   if (_target.lldb) {
       snprintf(&tstr[0], 32, "thread:%x;", tid);
   }
@@ -2288,7 +2290,7 @@ int gdb_packet_handle (char* in_buf, size_t in_len, char* out_buf)
 
   case '?':
     gdb_stop_string(out_buf, CURRENT_PROCESS_SIG, CURRENT_PROCESS_TID, 0,
-		    CURRENT_PROCESS_STOP);
+		    CURRENT_PROCESS_STOP, __FILE__, __LINE__);
     break;
 
   case 'A':

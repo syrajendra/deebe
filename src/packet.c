@@ -384,6 +384,9 @@ static int _packet_read (char* in_buf, size_t* in_len, int is_quick)
     s = gdb_interface_getpacket(in_buf, in_len, true /* do acks */);
   } while (s == ACK || s == NAK);
 
+  if (s != 0) {
+	  DBG_PRINT("Packet sequence CtrlC: %d\n", s);
+  }
   if (s == '\3') {
     if (gdb_interface_target->stop) {
       dbg_ack_packet_received(false, NULL);

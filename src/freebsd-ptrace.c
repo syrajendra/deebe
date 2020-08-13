@@ -1219,6 +1219,7 @@ int ptrace_add_break(pid_t tid, int type, uint64_t addr, size_t len) {
         ret = memory_read(tid, addr, bp->data, bp->len, &read_size, false);
         if (ret == RET_OK) {
           /* Now write the sw break insn in it's place */
+          DBG_PRINT("set sw breakpoint at addr 0x%lx \n", addr);
           ret = memory_write(tid, addr, bp->bdata, bp->len, false);
           if (ret == RET_OK) {
             if (_add_break_verbose) {
@@ -1313,6 +1314,7 @@ int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
        * Only really remove the breakpoint if it's reference count
        * is one. Write shadow content back anyway.
        */
+      DBG_PRINT("clear sw breakpoint at addr 0x%lx \n", addr);
       ret = memory_write(tid, addr, bp->data, bp->len, false);
       if (1 == bp->ref_count) {
         if (ret == RET_OK) {
@@ -1501,13 +1503,15 @@ static void _stopped_all(char *str) {
           unsigned long watch_addr = 0;
           /* Fill out the status string */
           if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
-            gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT);
+            gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT,
+                            __FILE__, __LINE__);
             target_thread_make_current(tid);
             CURRENT_PROCESS_STOP = LLDB_STOP_REASON_BREAKPOINT;
             no_event = false;
           } else if (ptrace_arch_hit_watchpoint(tid, &watch_addr)) {
             gdb_stop_string(str, g, tid, watch_addr,
-                            LLDB_STOP_REASON_WATCHPOINT);
+                            LLDB_STOP_REASON_WATCHPOINT,
+                            __FILE__, __LINE__);
             target_thread_make_current(tid);
             CURRENT_PROCESS_STOP = LLDB_STOP_REASON_WATCHPOINT;
             no_event = false;
@@ -1554,7 +1558,8 @@ static void _stopped_all(char *str) {
 
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
-              gdb_stop_string(str, g, tid, 0, reason);
+              DBG_PRINT("Sigtrap rcvd Current pc :0x%x\n", pc);
+              gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
               target_thread_make_current(tid);
               CURRENT_PROCESS_STOP = reason;
               no_event = false;
@@ -1579,7 +1584,8 @@ static void _stopped_all(char *str) {
               /* Need to report to gdb */
               if (target_thread_make_current(tid)) {
                 /* A non trap signal */
-                gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+                gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL,
+                                __FILE__, __LINE__);
                 CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
                 no_event = false;
               }
@@ -1594,7 +1600,8 @@ static void _stopped_all(char *str) {
              */
             if (target_thread_make_current(tid)) {
               /* A non trap signal */
-              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+              gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL,
+                              __FILE__, __LINE__);
               CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
               no_event = false;
             }

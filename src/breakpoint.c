@@ -161,7 +161,9 @@ struct breakpoint *breakpoint_add(struct breakpoint **bpl, int debug_level,
       }
     }
   }
-  //_breakpoint_print(*bpl);
+#ifndef DEEBE_RELEASE
+  _breakpoint_print(*bpl);
+#endif
   return ret;
 }
 

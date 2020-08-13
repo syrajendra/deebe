@@ -50,7 +50,6 @@
 #include "thread_db_priv.h"
 
 static bool _lwpinfo_verbose = false;
-static bool _threadstate_verbose = false;
 
 bool fbsd_thread_state() {
   bool ret = true;
@@ -66,16 +65,11 @@ bool fbsd_thread_state() {
 			   pid, &count);
     if (kp != NULL) {
       int i;
-      if (_threadstate_verbose) {
-	DBG_PRINT("Thread state\n");
-      }
       for (i = 0; i < count; i++) {
 	struct kinfo_proc *kpp = &kp[i];
 	const char * __attribute__((__unused__)) str = NULL;
-	if (_threadstate_verbose) {
-	  DBG_PRINT("\tpid %x tid %x ", kpp->ki_pid, kpp->ki_tid);
-	}
-	switch (kpp->ki_stat) {
+
+  switch (kpp->ki_stat) {
 	case SRUN:
 	  ret = false;
 	  str = "run";
@@ -108,9 +102,7 @@ bool fbsd_thread_state() {
 	  str = "??";
 	  break;
 	}
-	if (_threadstate_verbose) {
-	  DBG_PRINT("%s\n", str);
-	}
+	DBG_PRINT("pid %d tid %d %s\n", kpp->ki_pid, kpp->ki_tid, str);
       }
       procstat_freeprocs(prstat, kp);
       kp = NULL;
@@ -580,6 +572,7 @@ long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig) {
   long ret;
   long request = PT_CONTINUE;
   int index;
+  DBG_PRINT("step: %d\n", step);
   /*
    * FreeBSD does not notify when a thread exits
    * So if we continue a thread continues until it ends, we are stuck.
@@ -600,7 +593,10 @@ long ptrace_os_continue(pid_t pid, pid_t tid, int step, int sig) {
       PROCESS_STATE(index) = PRS_RUN;
     }
   }
-  ret = PTRACE(request, pid, 1, sig);
+  if (request == PT_CONTINUE)
+    ret = PTRACE(PT_CONTINUE, pid, 1, sig);
+  else
+    ret = PTRACE(PT_SETSTEP, pid, 1, sig);
   return ret;
 }
 
@@ -717,7 +713,8 @@ void ptrace_os_stopped_single(char *str, bool debug) {
       unsigned long watch_addr = 0;
       ptrace_arch_get_pc(tid, &pc);
       if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
-	gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT);
+	gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT,
+                  __FILE__, __LINE__);
 	CURRENT_PROCESS_STOP = LLDB_STOP_REASON_BREAKPOINT;
 	/*
 	 * process stat points to the true thread to continue
@@ -726,7 +723,8 @@ void ptrace_os_stopped_single(char *str, bool debug) {
 	PROCESS_STATE(index) = PRS_CONT;
       } else if (ptrace_arch_hit_watchpoint(tid, &watch_addr)) {
 	/* A watchpoint was hit */
-	gdb_stop_string(str, g, tid, watch_addr, LLDB_STOP_REASON_WATCHPOINT);
+	gdb_stop_string(str, g, tid, watch_addr, LLDB_STOP_REASON_WATCHPOINT,
+                  __FILE__, __LINE__);
 	CURRENT_PROCESS_STOP = LLDB_STOP_REASON_WATCHPOINT;
 	/*
 	 * process stat points to the true thread to continue
@@ -765,7 +763,7 @@ void ptrace_os_stopped_single(char *str, bool debug) {
 	    ptrace_arch_set_pc(tid, pc - ptrace_arch_swbrk_rollback());
 	  reason = LLDB_STOP_REASON_BREAKPOINT;
 	}
-	gdb_stop_string(str, g, tid, 0, reason);
+	gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
 	CURRENT_PROCESS_STOP = reason;
 	/*
 	 * process stat points to the true thread to continue
@@ -775,7 +773,8 @@ void ptrace_os_stopped_single(char *str, bool debug) {
       }
     } else {
       /* A non trap signal, report the true thread */
-      gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+      gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL,
+                      __FILE__, __LINE__);
       CURRENT_PROCESS_STOP = LLDB_STOP_REASON_SIGNAL;
     }
   }

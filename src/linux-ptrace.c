@@ -1424,13 +1424,15 @@ static void _stopped_all(char *str) {
           unsigned long watch_addr = 0;
           /* Fill out the status string */
           if (ptrace_arch_hit_hardware_breakpoint(tid, pc)) {
-            gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT);
+            gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_BREAKPOINT,
+                            __FILE__, __LINE__);
             target_thread_make_current(tid);
             CURRENT_PROCESS_STOP = LLDB_STOP_REASON_BREAKPOINT;
             no_event = false;
           } else if (ptrace_arch_hit_watchpoint(tid, &watch_addr)) {
             gdb_stop_string(str, g, tid, watch_addr,
-                            LLDB_STOP_REASON_WATCHPOINT);
+                            LLDB_STOP_REASON_WATCHPOINT,
+                            __FILE__, __LINE__);
             target_thread_make_current(tid);
             CURRENT_PROCESS_STOP = LLDB_STOP_REASON_WATCHPOINT;
             no_event = false;
@@ -1477,7 +1479,7 @@ static void _stopped_all(char *str) {
 
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
-              gdb_stop_string(str, g, tid, 0, reason);
+              gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
               DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_BREAKPOINT\n",
                           PROCESS_PID(index), PROCESS_TID(index),
                           PROCESS_WAIT_FLAG(index),
@@ -1532,7 +1534,8 @@ static void _stopped_all(char *str) {
                */
               if (target_thread_make_current(tid)) {
                 /* A non trap signal */
-                gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL);
+                gdb_stop_string(str, g, tid, 0, LLDB_STOP_REASON_SIGNAL,
+                                __FILE__, __LINE__);
                 DBG_PRINT("pid:%d tid:%d wait_flag:%d process_state:%s str:[%s] LLDB_STOP_REASON_SIGNAL\n",
                             PROCESS_PID(index), PROCESS_TID(index),
                             PROCESS_WAIT_FLAG(index), PROCESS_STATE_STR(index), str);
@@ -1955,8 +1958,8 @@ void log_ptrace(int request, pid_t pid, char *reqstr, char *srcname,
     DBG_PRINT("Failed for request %d (%s) pid : %d perrno: %d\n",
               request, reqstr, pid, perrno);
     memset(&str[0], 0, 128);
-    strerror_r(perrno, &str[0], 128);
-    DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
+    if (strerror_r(perrno, &str[0], 128) == 0)
+      DBG_PRINT("\tError-code : %d Error-msg : %s\n", perrno, str);
   } else {
     if (request != 3) {
       DBG_PRINT("PTRACE call @ source %s:%d request:%d (%s) pid:%zd ret:%lx\n",

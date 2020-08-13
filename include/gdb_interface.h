@@ -367,7 +367,7 @@ int gdb_interface_packet();
 int gdb_interface_quick_packet();
 void gdb_interface_put_console(char *b);
 void gdb_stop_string(char *str, int sig, pid_t tid, unsigned long watch_addr,
-                     int lldb_reason);
+                     int lldb_reason, char *filename, int lineno);
 void gdb_interface_write_retval(int ret, char *buf);
 int symbol_lookup(const char *name, uintptr_t *addr);
 int gdb_interface_getpacket(char *buf, size_t *len, bool ret_ack);
