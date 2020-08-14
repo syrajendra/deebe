@@ -65,7 +65,7 @@
 #if defined (__amd64__)
 #include "gdb-x86_64.h"
 #endif
-static bool _read_reg_verbose = false;
+static bool _read_reg_verbose = true;
 static bool _resume_current_verbose = false;
 static bool _resume_from_addr_verbose = false;
 #ifdef PT_SYSCALL
@@ -74,7 +74,7 @@ static bool _resume_syscall_verbose = false;
 static bool _write_reg_verbose = false;
 static bool _wait_verbose = false;
 static bool _add_break_verbose = false;
-static bool _remove_break_verbose = false;
+static bool _remove_break_verbose = true;
 static bool _read_single_reg_verbose = false;
 static bool _write_single_reg_verbose = false;
 static bool _stop_verbose = false;
@@ -152,7 +152,7 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
   rmax = ptrace_arch_gdb_greg_max();
 #ifndef DEEBE_RELEASE
   if (_read_reg_verbose) {
-    printf("\n");
+    MY_PRINT("\n");
   }
 #endif
   for (r = 0; r < rmax; r++) {
@@ -162,11 +162,12 @@ static size_t _copy_greg_to_gdb(void *gdb, void *avail) {
 #ifndef DEEBE_RELEASE
       int j;
       if (_read_reg_verbose) {
-        if (r >10 && r <16) {
-          printf("Reg:%d Name:%s Size:%zd ", i, grll[i].name, grll[i].size);
+        if (r >10 && r <=16) {
+          DBG_PRINT("Reg:%d Name:%s AltName:%s Size:%zd ", i, grll[i].name,
+                    grll[i].altname,grll[i].size);
           for (j=grll[i].size-1; j>=0; j--)
-            printf("%02x ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
-          printf("\n");
+            MY_PRINT("%02x ", ((char*)(_target.reg + grll[i].off))[j] & 0xFF);
+          MY_PRINT("\n");
         }
       }
 #endif
@@ -677,19 +678,19 @@ int ptrace_restart(void) {
              * SIGTRAP from execv
              */
             if (WIFSTOPPED(status) && (WSTOPSIG(status) == SIGTRAP)) {
-	      pid_t tid = ptrace_os_get_wait_tid(try_child);
-	      if (tid < 0) {
-	        tid = try_child;
-	      }
+	            pid_t tid = ptrace_os_get_wait_tid(try_child);
+	            if (tid < 0) {
+	              tid = try_child;
+	            }
               if (target_new_thread(
                       try_child, tid, status, true, SIGTRAP)) {
                 ptrace_arch_option_set_thread(try_child);
                 fprintf(stdout, "Process %s created; pid = %d\n",
                         cmdline_argv[0], CURRENT_PROCESS_PID);
                 fflush(stdout);
-		/* DEBUGGING CODE START */
-		/* elf_dump_symbol_table(try_child); */
-		/* DEBUGGING CODE END */
+		            /* DEBUGGING CODE START */
+		            /* elf_dump_symbol_table(try_child); */
+		            /* DEBUGGING CODE END */
                 ret = RET_OK;
               }
             } else {
@@ -1314,17 +1315,18 @@ int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
        * Only really remove the breakpoint if it's reference count
        * is one. Write shadow content back anyway.
        */
-      DBG_PRINT("clear sw breakpoint at addr 0x%lx \n", addr);
+      DBG_PRINT("clear sw breakpoint at addr 0x%lx refcount: %d\n",
+                addr, bp->ref_count);
       ret = memory_write(tid, addr, bp->data, bp->len, false);
       if (1 == bp->ref_count) {
         if (ret == RET_OK) {
           breakpoint_remove(&_target.bpl, _remove_break_verbose, kaddr);
-          if (_add_break_verbose) {
+          if (_remove_break_verbose) {
             DBG_PRINT("OK removing breakpoint at 0x%lx\n", kaddr);
           }
         } else {
           /* Failure */
-          if (_add_break_verbose) {
+          if (_remove_break_verbose) {
             DBG_PRINT("ERROR restoring data for breakpoint at 0x%lx\n", kaddr);
           }
         }
@@ -1334,7 +1336,7 @@ int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
         ret = RET_OK;
       }
     } else {
-      if (_add_break_verbose) {
+      if (_remove_break_verbose) {
         DBG_PRINT("Warning problem removing breakpoint at 0x%lx\n", kaddr);
       }
     }
@@ -1558,7 +1560,7 @@ static void _stopped_all(char *str) {
 
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
-              DBG_PRINT("Sigtrap rcvd Current pc :0x%x\n", pc);
+              DBG_PRINT("Sigtrap rcvd current pc :0x%x\n", pc);
               gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
               target_thread_make_current(tid);
               CURRENT_PROCESS_STOP = reason;

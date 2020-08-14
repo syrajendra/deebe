@@ -43,8 +43,8 @@
 #include "macros.h"
 #include "os.h"
 
-static bool _read_mem_verbose = false;
-static bool _write_mem_verbose = false;
+static bool _read_mem_verbose = true;
+static bool _write_mem_verbose = true;
 
 /*
  * read mem is used by breakpoint creation
@@ -81,11 +81,11 @@ int memory_read(pid_t tid, uint64_t addr, uint8_t *data, size_t size,
     for (i = 0; i < kbuf_size; i++) {
       void *l = (void *)(kb_addr + i * tran_size);
       if (! memory_os_read(tid, l, &a[i * tran_size])) {
-	  if (_read_mem_verbose) {
-	      DBG_PRINT("Error with failed to read %p\n", l);
-	      DBG_PRINT("leading %zu trailing %zu\n", leading, trailing);
-	  }
-	  break;
+        if (_read_mem_verbose) {
+          DBG_PRINT("Error with failed to read %p\n", l);
+          DBG_PRINT("leading %zu trailing %zu\n", leading, trailing);
+        }
+        break;
       }
     }
     if (i == kbuf_size) {
@@ -181,7 +181,7 @@ int memory_write(pid_t tid, uint64_t addr, uint8_t *data,
       /* No double tap */
       if (i || !leading) {
         l = (void *)(kb_addr + i * tran_size);
-	if (! memory_os_read(tid, l, &a[i * tran_size])) {
+        if (! memory_os_read(tid, l, &a[i * tran_size])) {
           if (_write_mem_verbose) {
             DBG_PRINT("Error with reading data at %p\n", l);
           }

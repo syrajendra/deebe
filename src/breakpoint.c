@@ -49,6 +49,7 @@ void _breakpoint_print(struct breakpoint *bpl) {
     DBG_PRINT("\taddr 0x%lx\n", p->addr);
     DBG_PRINT("\tnext %p\n", p->n);
     DBG_PRINT("\tprev %p\n", p->p);
+    DBG_PRINT("\nref_count %d\n", p->ref_count);
     DBG_PRINT("\tdata\n\t");
     util_print_buffer(fp_log, 0, p->len, p->data);
     DBG_PRINT("\tbdata\n\t");
@@ -119,10 +120,11 @@ struct breakpoint *breakpoint_add(struct breakpoint **bpl, int debug_level,
       bp->n = NULL;
       bp->data = NULL;
       bp->bdata = NULL;
+      bp->ref_count = 0;
       bp->data = malloc(len);
       if (!bp->data) {
         if (debug_level) {
-          fprintf(fp_log, "INTERNAL ERROR Allocating breakpoint at 0x%lx\n",
+          DBG_PRINT("INTERNAL ERROR Allocating breakpoint at 0x%lx\n",
                   addr);
         }
         free(bp);
@@ -131,8 +133,7 @@ struct breakpoint *breakpoint_add(struct breakpoint **bpl, int debug_level,
         bp->bdata = malloc(len);
         if (!bp->bdata) {
           if (debug_level) {
-            fprintf(fp_log, "INTERNAL ERROR Allocating breakpoint at 0x%lx\n",
-                    addr);
+            DBG_PRINT("INTERNAL ERROR Allocating breakpoint at 0x%lx\n", addr);
           }
           free(bp->data);
           free(bp);
@@ -156,8 +157,7 @@ struct breakpoint *breakpoint_add(struct breakpoint **bpl, int debug_level,
       }
     } else {
       if (debug_level) {
-        fprintf(fp_log, "INTERNAL ERROR Allocating breakpoint at 0x%lx\n",
-                addr);
+        DBG_PRINT("INTERNAL ERROR Allocating breakpoint at 0x%lx\n", addr);
       }
     }
   }
@@ -198,8 +198,8 @@ void breakpoint_adjust_read_buffer(struct breakpoint *bpl, int debug_level,
         src = p->data + leading;
         dst = buffer + (p->addr + leading - addr);
         if (debug_level) {
-          fprintf(fp_log, "%s %p %p %zd : %zd %zd\n", __func__, src, dst, size,
-                  leading, trailing);
+          DBG_PRINT("%s %p %p %zd : %zd %zd\n", __func__, src, dst,
+                    size, leading, trailing);
         }
         memcpy(dst, src, size);
       }
@@ -226,16 +226,16 @@ void breakpoint_adjust_write_buffer(struct breakpoint *bpl, int debug_level,
         dst = p->data + leading;
         src = buffer + (p->addr + leading - addr);
         if (debug_level) {
-          fprintf(fp_log, "%s 1 %p %p %zd : %zd %zd\n", __func__, src, dst,
-                  size, leading, trailing);
+          DBG_PRINT("%s 1 %p %p %zd : %zd %zd\n", __func__, src, dst,
+                    size, leading, trailing);
         }
         memcpy(dst, src, size);
         /* The breakpoint insn */
         src = p->bdata + leading;
         dst = buffer + (p->addr + leading - addr);
         if (debug_level) {
-          fprintf(fp_log, "%s 1 %p %p %zd : %zd %zd\n", __func__, src, dst,
-                  size, leading, trailing);
+          DBG_PRINT("%s 1 %p %p %zd : %zd %zd\n", __func__, src, dst,
+                    size, leading, trailing);
         }
         memcpy(dst, src, size);
       }
