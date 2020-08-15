@@ -49,7 +49,7 @@ void _breakpoint_print(struct breakpoint *bpl) {
     DBG_PRINT("\taddr 0x%lx\n", p->addr);
     DBG_PRINT("\tnext %p\n", p->n);
     DBG_PRINT("\tprev %p\n", p->p);
-    DBG_PRINT("\nref_count %d\n", p->ref_count);
+    DBG_PRINT("\tref_count %d\n", p->ref_count);
     DBG_PRINT("\tdata\n\t");
     util_print_buffer(fp_log, 0, p->len, p->data);
     DBG_PRINT("\tbdata\n\t");

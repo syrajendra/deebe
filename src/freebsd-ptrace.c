@@ -1157,6 +1157,30 @@ int ptrace_crc_query(uint64_t addr, size_t len, uint32_t *val) {
   return RET_ERR;
 }
 
+void verify_memory(pid_t tid, unsigned long addr, void *data, size_t size) {
+  int ret = RET_ERR;
+  void *read_data  = malloc(size);
+  size_t read_size = 0;
+  ret = memory_read(tid, addr, read_data, size, &read_size, false);
+  if (ret == RET_OK) {
+    if (read_size == size) {
+      // comparing just 1 byte data
+      if (*(unsigned char *)read_data != *(unsigned char *)data) {
+        DBG_PRINT("ERROR reading data does not match for breakpoint at 0x%lx\n", addr);
+      } //else {
+        //DBG_PRINT("read_data:0x%02x data:0x%02x \n",
+        //        *(unsigned char *)read_data, *(unsigned char *)data);
+        //}
+    } else {
+      DBG_PRINT("ERROR reading data size does not match for breakpoint at 0x%lx\n", addr);
+    }
+  } else {
+    DBG_PRINT("ERROR reading data for breakpoint at 0x%lx\n", addr);
+  }
+  free(read_data);
+}
+
+
 int ptrace_add_break(pid_t tid, int type, uint64_t addr, size_t len) {
   int ret = RET_ERR;
 
@@ -1223,6 +1247,7 @@ int ptrace_add_break(pid_t tid, int type, uint64_t addr, size_t len) {
           DBG_PRINT("set sw breakpoint at addr 0x%lx \n", addr);
           ret = memory_write(tid, addr, bp->bdata, bp->len, false);
           if (ret == RET_OK) {
+            verify_memory(tid, addr, bp->bdata, bp->len);
             if (_add_break_verbose) {
               DBG_PRINT("OK setting breakpoint at 0x%lx\n", kaddr);
             }
@@ -1320,6 +1345,7 @@ int ptrace_remove_break(pid_t tid, int type, uint64_t addr, size_t len) {
       ret = memory_write(tid, addr, bp->data, bp->len, false);
       if (1 == bp->ref_count) {
         if (ret == RET_OK) {
+          verify_memory(tid, addr, bp->data, bp->len);
           breakpoint_remove(&_target.bpl, _remove_break_verbose, kaddr);
           if (_remove_break_verbose) {
             DBG_PRINT("OK removing breakpoint at 0x%lx\n", kaddr);
@@ -1481,6 +1507,8 @@ static void _continued_all() {
 static void _stopped_all(char *str) {
   int index;
   bool no_event = true; /* Nothing to report to gdb */
+  struct breakpoint *bp = NULL;
+
   /* This does not work for FreeBSD as the threads are not free running */
   for (index = 0; no_event && index < _target.number_processes; index++) {
     bool process_wait = PROCESS_WAIT_FLAG(index);
@@ -1561,10 +1589,16 @@ static void _stopped_all(char *str) {
                 reason = LLDB_STOP_REASON_BREAKPOINT;
               }
               DBG_PRINT("Sigtrap rcvd current pc :0x%x\n", pc);
-              gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
-              target_thread_make_current(tid);
-              CURRENT_PROCESS_STOP = reason;
-              no_event = false;
+              pc = pc - ptrace_arch_swbrk_rollback();
+              ptrace_arch_set_pc(tid, pc);
+              // if breakpoint set than only notify trap
+              bp = breakpoint_find(_target.bpl, _wait_verbose, pc);
+              if (bp) {
+                gdb_stop_string(str, g, tid, 0, reason, __FILE__, __LINE__);
+                target_thread_make_current(tid);
+                CURRENT_PROCESS_STOP = reason;
+                no_event = false;
+              }
             }
           }
         } else {
