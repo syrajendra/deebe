@@ -43,21 +43,32 @@
 int ptrace_arch_gdb_greg_max() { return GDB_GREG_MAX; }
 
 #define GDB_ZERO 0
-#define GDB_AT 1
+#define GDB_AST 1
 #define GDB_V0 2
 #define GDB_V1 3
 #define GDB_A0 4
 #define GDB_A1 5
 #define GDB_A2 6
 #define GDB_A3 7
-#define GDB_T0 8
-#define GDB_T1 9
+#if defined(__mips_n32) || defined(__mips_n64)
+#define GDB_A4 8
+#define GDB_A5 9
+#define GDB_A6 10
+#define GDB_A7 11
+#define GDB_T0 12
+#define GDB_T1 13
+#define GDB_T2 14
+#define GDB_T3 15
+#else
+#define GDB_T0  8
+#define GDB_T1  9
 #define GDB_T2 10
 #define GDB_T3 11
 #define GDB_T4 12
 #define GDB_T5 13
 #define GDB_T6 14
 #define GDB_T7 15
+#endif
 #define GDB_S0 16
 #define GDB_S1 17
 #define GDB_S2 18
@@ -87,59 +98,73 @@ int ptrace_arch_gdb_greg_max() { return GDB_GREG_MAX; }
 #define GDB_GREG_SIZE 0
 #endif
 
+#define DEEBE_REG_STRUCT reg
+#include "regmacros.h"
+
 /* General */
 struct reg_location_list grll[] = {
-    GRLL(zero, r_regs[0], GDB_ZERO, 0, 0, GDB_GREG_SIZE),
-    GRLL(at, r_regs[1], GDB_AT, 0, 0, GDB_GREG_SIZE),
-    GRLL(v0, r_regs[2], GDB_V0, 0, 0, GDB_GREG_SIZE),
-    GRLL(v1, r_regs[3], GDB_V1, 0, 0, GDB_GREG_SIZE),
-    GRLL(a0, r_regs[4], GDB_A0, 0, 0, GDB_GREG_SIZE),
-    GRLL(a1, r_regs[5], GDB_A1, 0, 0, GDB_GREG_SIZE),
-    GRLL(a2, r_regs[6], GDB_A2, 0, 0, GDB_GREG_SIZE),
-    GRLL(a3, r_regs[7], GDB_A3, 0, 0, GDB_GREG_SIZE),
-    GRLL(t0, r_regs[8], GDB_T0, 0, 0, GDB_GREG_SIZE),
-    GRLL(t1, r_regs[9], GDB_T1, 0, 0, GDB_GREG_SIZE),
-    GRLL(t2, r_regs[10], GDB_T2, 0, 0, GDB_GREG_SIZE),
-    GRLL(t3, r_regs[11], GDB_T3, 0, 0, GDB_GREG_SIZE),
-    GRLL(t4, r_regs[12], GDB_T4, 0, 0, GDB_GREG_SIZE),
-    GRLL(t5, r_regs[13], GDB_T5, 0, 0, GDB_GREG_SIZE),
-    GRLL(t6, r_regs[14], GDB_T6, 0, 0, GDB_GREG_SIZE),
-    GRLL(t7, r_regs[15], GDB_T7, 0, 0, GDB_GREG_SIZE),
-    GRLL(s0, r_regs[16], GDB_S0, 0, 0, GDB_GREG_SIZE),
-    GRLL(s1, r_regs[17], GDB_S1, 0, 0, GDB_GREG_SIZE),
-    GRLL(s2, r_regs[18], GDB_S2, 0, 0, GDB_GREG_SIZE),
-    GRLL(s3, r_regs[19], GDB_S3, 0, 0, GDB_GREG_SIZE),
-    GRLL(s4, r_regs[20], GDB_S4, 0, 0, GDB_GREG_SIZE),
-    GRLL(s5, r_regs[21], GDB_S5, 0, 0, GDB_GREG_SIZE),
-    GRLL(s6, r_regs[22], GDB_S6, 0, 0, GDB_GREG_SIZE),
-    GRLL(s7, r_regs[23], GDB_S7, 0, 0, GDB_GREG_SIZE),
-    GRLL(t8, r_regs[24], GDB_T8, 0, 0, GDB_GREG_SIZE),
-    GRLL(t9, r_regs[25], GDB_T9, 0, 0, GDB_GREG_SIZE),
-    GRLL(k0, r_regs[26], GDB_K0, 0, 0, GDB_GREG_SIZE),
-    GRLL(k1, r_regs[27], GDB_K1, 0, 0, GDB_GREG_SIZE),
-    GRLL(gp, r_regs[28], GDB_GP, 0, 0, GDB_GREG_SIZE),
-    GRLL(sp, r_regs[29], GDB_SP, 0, 0, GDB_GREG_SIZE),
-    GRLL(s8, r_regs[30], GDB_S8, 0, 0, GDB_GREG_SIZE),
-    GRLL(ra, r_regs[31], GDB_RA, 0, 0, GDB_GREG_SIZE),
-    GRLL(status, r_regs[32], GDB_STATUS, 0, 0, GDB_GREG_SIZE),
-    GRLL(lo, r_regs[33], GDB_LO, 0, 0, GDB_GREG_SIZE),
-    GRLL(hi, r_regs[34], GDB_HI, 0, 0, GDB_GREG_SIZE),
-    GRLL(badvaddr, r_regs[35], GDB_BADVADDR, 0, 0, GDB_GREG_SIZE),
-    GRLL(cause, r_regs[36], GDB_CAUSE, 0, 0, GDB_GREG_SIZE),
-    GRLL(pc, r_regs[37], GDB_PC, 0, 0, GDB_GREG_SIZE),
+    RLL(zero,     r_regs[0],  GDB_ZERO,     0, 0, 0, unit, hex,  0,  0, X, X),
+    RLL(ast,      r_regs[1],  GDB_AST,      0, 0, 0, unit, hex,  1,  1, X, X),
+    RLL(v0,       r_regs[2],  GDB_V0,       0, 0, 0, unit, hex,  2,  2, X, X),
+    RLL(v1,       r_regs[3],  GDB_V1,       0, 0, 0, unit, hex,  3,  3, X, X),
+    RLL(a0,       r_regs[4],  GDB_A0,       0, 0, 0, unit, hex,  4,  4, X, X),
+    RLL(a1,       r_regs[5],  GDB_A1,       0, 0, 0, unit, hex,  5,  5, X, X),
+    RLL(a2,       r_regs[6],  GDB_A2,       0, 0, 0, unit, hex,  6,  6, X, X),
+    RLL(a3,       r_regs[7],  GDB_A3,       0, 0, 0, unit, hex,  7,  7, X, X),
+#if defined(__mips_n32) || defined(__mips_n64)
+    RLL(t0,       r_regs[8],  GDB_A4,       0, 0, 0, unit, hex,  8,  8, X, X),
+    RLL(t1,       r_regs[9],  GDB_A5,       0, 0, 0, unit, hex,  9,  9, X, X),
+    RLL(t2,       r_regs[10], GDB_A6,       0, 0, 0, unit, hex, 10, 10, X, X),
+    RLL(t3,       r_regs[11], GDB_A7,       0, 0, 0, unit, hex, 11, 11, X, X),
+    RLL(t4,       r_regs[12], GDB_T0,       0, 0, 0, unit, hex, 12, 12, X, X),
+    RLL(t5,       r_regs[13], GDB_T1,       0, 0, 0, unit, hex, 13, 13, X, X),
+    RLL(t6,       r_regs[14], GDB_T2,       0, 0, 0, unit, hex, 14, 14, X, X),
+    RLL(t7,       r_regs[15], GDB_T3,       0, 0, 0, unit, hex, 15, 15, X, X),
+#else
+    RLL(t0,       r_regs[8],  GDB_T0,       0, 0, 0, unit, hex,  8,  8, X, X),
+    RLL(t1,       r_regs[9],  GDB_T1,       0, 0, 0, unit, hex,  9,  9, X, X),
+    RLL(t2,       r_regs[10], GDB_T2,       0, 0, 0, unit, hex, 10, 10, X, X),
+    RLL(t3,       r_regs[11], GDB_T3,       0, 0, 0, unit, hex, 11, 11, X, X),
+    RLL(t4,       r_regs[12], GDB_T4,       0, 0, 0, unit, hex, 12, 12, X, X),
+    RLL(t5,       r_regs[13], GDB_T5,       0, 0, 0, unit, hex, 13, 13, X, X),
+    RLL(t6,       r_regs[14], GDB_T6,       0, 0, 0, unit, hex, 14, 14, X, X),
+    RLL(t7,       r_regs[15], GDB_T7,       0, 0, 0, unit, hex, 15, 15, X, X),
+#endif
+    RLL(s0,       r_regs[16], GDB_S0,       0, 0, 0, unit, hex, 16, 16, X, X),
+    RLL(s1,       r_regs[17], GDB_S1,       0, 0, 0, unit, hex, 17, 17, X, X),
+    RLL(s2,       r_regs[18], GDB_S2,       0, 0, 0, unit, hex, 18, 18, X, X),
+    RLL(s3,       r_regs[19], GDB_S3,       0, 0, 0, unit, hex, 19, 19, X, X),
+    RLL(s4,       r_regs[20], GDB_S4,       0, 0, 0, unit, hex, 20, 20, X, X),
+    RLL(s5,       r_regs[21], GDB_S5,       0, 0, 0, unit, hex, 21, 21, X, X),
+    RLL(s6,       r_regs[22], GDB_S6,       0, 0, 0, unit, hex, 22, 22, X, X),
+    RLL(s7,       r_regs[23], GDB_S7,       0, 0, 0, unit, hex, 23, 23, X, X),
+    RLL(t8,       r_regs[24], GDB_T8,       0, 0, 0, unit, hex, 24, 24, X, X),
+    RLL(t9,       r_regs[25], GDB_T9,       0, 0, 0, unit, hex, 25, 25, X, X),
+    RLL(k0,       r_regs[26], GDB_K0,       0, 0, 0, unit, hex, 26, 26, X, X),
+    RLL(k1,       r_regs[27], GDB_K1,       0, 0, 0, unit, hex, 27, 27, X, X),
+    RLL(gp,       r_regs[28], GDB_GP,       0, 0, 0, unit, hex, 28, 28, X, X),
+    RLL(sp,       r_regs[29], GDB_SP,       0, 0, 0, unit, hex, 29, 29, X, X),
+    RLL(s8,       r_regs[30], GDB_S8,       0, 0, 0, unit, hex, 30, 30, X, X),
+    RLL(ra,       r_regs[31], GDB_RA,       0, 0, 0, unit, hex, 31, 31, X, X),
+    RLL(status,   r_regs[32], GDB_STATUS,   0, 0, 0, unit, hex, 32, 32, X, X),
+    RLL(lo,       r_regs[33], GDB_LO,       0, 0, 0, unit, hex, 33, 33, X, X),
+    RLL(hi,       r_regs[34], GDB_HI,       0, 0, 0, unit, hex, 34, 34, X, X),
+    RLL(badvaddr, r_regs[35], GDB_BADVADDR, 0, 0, 0, unit, hex, 35, 35, X, X),
+    RLL(cause,    r_regs[36], GDB_CAUSE,    0, 0, 0, unit, hex, 36, 36, X, X),
+    RLL(pc,       r_regs[37], GDB_PC,       0, 0, 0, unit, hex, 37, 37, X, X),
     {0},
 };
 
 #define GDB_FPR0 38
-#define GDB_FPR1 (GDB_FPR0 + 0x01)
-#define GDB_FPR2 (GDB_FPR0 + 0x02)
-#define GDB_FPR3 (GDB_FPR0 + 0x03)
-#define GDB_FPR4 (GDB_FPR0 + 0x04)
-#define GDB_FPR5 (GDB_FPR0 + 0x05)
-#define GDB_FPR6 (GDB_FPR0 + 0x06)
-#define GDB_FPR7 (GDB_FPR0 + 0x07)
-#define GDB_FPR8 (GDB_FPR0 + 0x08)
-#define GDB_FPR9 (GDB_FPR0 + 0x09)
+#define GDB_FPR1  (GDB_FPR0 + 0x01)
+#define GDB_FPR2  (GDB_FPR0 + 0x02)
+#define GDB_FPR3  (GDB_FPR0 + 0x03)
+#define GDB_FPR4  (GDB_FPR0 + 0x04)
+#define GDB_FPR5  (GDB_FPR0 + 0x05)
+#define GDB_FPR6  (GDB_FPR0 + 0x06)
+#define GDB_FPR7  (GDB_FPR0 + 0x07)
+#define GDB_FPR8  (GDB_FPR0 + 0x08)
+#define GDB_FPR9  (GDB_FPR0 + 0x09)
 #define GDB_FPR10 (GDB_FPR0 + 0x0A)
 #define GDB_FPR11 (GDB_FPR0 + 0x0B)
 #define GDB_FPR12 (GDB_FPR0 + 0x0C)
@@ -243,6 +268,10 @@ int ptrace_arch_swbreak_insn(void *bdata) {
   return ret;
 }
 
+size_t ptrace_arch_swbreak_size() { return 4; }
+
+size_t ptrace_arch_swbrk_rollback() { return ptrace_arch_swbreak_size(); }
+
 void ptrace_arch_get_pc(pid_t tid, unsigned long *pc) {
   _read_greg(tid);
   memcpy(pc, _target.reg + 37 * sizeof(register_t), sizeof(register_t));
@@ -344,5 +373,20 @@ bool ptrace_arch_hit_hardware_breakpoint(pid_t tid, unsigned long pc) {
 
 bool ptrace_arch_memory_region_info(uint64_t addr, char *out_buff,
                                     size_t out_buf_size) {
-  return ptrace_os_memory_region_info(addr, out_buff, out_buf_size);
+  //return ptrace_os_memory_region_info(addr, out_buff, out_buf_size);
+  return false;
+}
+
+bool ptrace_arch_read_auxv(char *out_buff, size_t out_buf_size, size_t offset,
+                           size_t *size) {
+  return ptrace_os_read_auxv(out_buff, out_buf_size, offset, size);
+}
+
+const char *ptrace_arch_get_xml_register_string() {
+  static char *str = "mips";
+  return str;
+}
+
+void ptrace_arch_option_set_thread(pid_t pid) {
+  ptrace_os_option_set_thread(pid);
 }
