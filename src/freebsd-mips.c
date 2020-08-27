@@ -270,7 +270,7 @@ int ptrace_arch_swbreak_insn(void *bdata) {
 
 size_t ptrace_arch_swbreak_size() { return 4; }
 
-size_t ptrace_arch_swbrk_rollback() { return ptrace_arch_swbreak_size(); }
+size_t ptrace_arch_swbrk_rollback() { return 0; }
 
 void ptrace_arch_get_pc(pid_t tid, unsigned long *pc) {
   _read_greg(tid);
